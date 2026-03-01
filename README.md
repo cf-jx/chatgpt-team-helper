@@ -45,7 +45,7 @@
 #### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/Kylsky/chatgpt-team-helper.git
+git clone https://github.com/cf-jx/chatgpt-team-helper.git
 cd chatgpt-team-helper
 ```
 
