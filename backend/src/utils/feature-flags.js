@@ -8,10 +8,15 @@ const FEATURE_FLAG_KEYS = [
 ]
 
 const DEFAULT_FEATURE_FLAGS = Object.freeze({
-  xhs: true,
-  xianyu: true,
+  xhs: false,
+  xianyu: false,
   payment: true,
   openAccounts: true
+})
+
+const HARD_DISABLED_FEATURE_FLAGS = Object.freeze({
+  xhs: false,
+  xianyu: false
 })
 
 const CACHE_TTL_MS = 30 * 1000
@@ -63,8 +68,8 @@ export async function getFeatureFlags(db, { forceRefresh = false } = {}) {
   }
 
   cachedFlags = {
-    xhs: resolveEnabled('feature_xhs_enabled', DEFAULT_FEATURE_FLAGS.xhs),
-    xianyu: resolveEnabled('feature_xianyu_enabled', DEFAULT_FEATURE_FLAGS.xianyu),
+    xhs: HARD_DISABLED_FEATURE_FLAGS.xhs,
+    xianyu: HARD_DISABLED_FEATURE_FLAGS.xianyu,
     payment: resolveEnabled('feature_payment_enabled', DEFAULT_FEATURE_FLAGS.payment),
     openAccounts: resolveEnabled('feature_open_accounts_enabled', DEFAULT_FEATURE_FLAGS.openAccounts)
   }

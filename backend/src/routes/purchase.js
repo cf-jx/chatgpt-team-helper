@@ -12,7 +12,6 @@ import { getChannels, normalizeChannelKey } from '../utils/channels.js'
 import { getPurchaseProductByKey, listPurchaseProducts, normalizeCodeChannels, normalizeProductKey } from '../services/purchase-products.js'
 import { safeInsertPointsLedgerEntry } from '../utils/points-ledger.js'
 import { getZpaySettings } from '../utils/zpay-settings.js'
-import { sendTelegramBotNotification } from '../services/telegram-notifier.js'
 import { requireFeatureEnabled } from '../middleware/feature-flags.js'
 
 const router = express.Router()
@@ -965,40 +964,6 @@ const handlePaidOrder = async (db, orderNo, { payType, tradeNo, paidAt, notifyPa
       }
     }
 
-    const orderForTelegram = fetchOrder(db, orderNo)
-    if (orderForTelegram?.status === 'paid' && !orderForTelegram.telegramSentAt) {
-      const lines = [
-        '✅ 订单支付成功',
-        `订单号：${orderForTelegram.orderNo}`,
-        `邮箱：${orderForTelegram.email}`,
-        `商品：${orderForTelegram.productName}`,
-        `金额：${orderForTelegram.amount}`,
-        orderForTelegram.payType ? `支付方式：${orderForTelegram.payType}` : null,
-        orderForTelegram.zpayTradeNo ? `交易号：${orderForTelegram.zpayTradeNo}` : null,
-        orderForTelegram.paidAt ? `支付时间：${orderForTelegram.paidAt}` : null,
-        orderForTelegram.redeemedAt ? `兑换时间：${orderForTelegram.redeemedAt}` : null,
-        orderForTelegram.redeemError ? `兑换失败：${orderForTelegram.redeemError}` : null
-      ].filter(Boolean)
-
-      const notifyResult = await sendTelegramBotNotification(lines.join('\n'), { db }).catch(error => ({
-        ok: false,
-        error: error?.message || String(error)
-      }))
-
-      if (notifyResult?.ok) {
-        db.run(
-          `
-            UPDATE purchase_orders
-            SET telegram_sent_at = DATETIME('now', 'localtime'),
-                updated_at = DATETIME('now', 'localtime')
-            WHERE order_no = ?
-              AND telegram_sent_at IS NULL
-          `,
-          [orderNo]
-        )
-        saveDatabase()
-      }
-    }
   })
 }
 

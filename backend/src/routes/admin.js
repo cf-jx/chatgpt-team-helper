@@ -17,7 +17,6 @@ import {
 } from '../utils/linuxdo-settings.js'
 import { getZpaySettings, getZpaySettingsFromEnv, invalidateZpaySettingsCache } from '../utils/zpay-settings.js'
 import { getTurnstileSettings, getTurnstileSettingsFromEnv, invalidateTurnstileSettingsCache } from '../utils/turnstile-settings.js'
-import { getTelegramSettings, getTelegramSettingsFromEnv, invalidateTelegramSettingsCache } from '../utils/telegram-settings.js'
 import { getFeatureFlags, invalidateFeatureFlagsCache } from '../utils/feature-flags.js'
 import { CHANNEL_KEY_REGEX, getChannelByKey, getChannels, invalidateChannelsCache, normalizeChannelKey } from '../utils/channels.js'
 import {
@@ -798,125 +797,6 @@ router.put('/turnstile-settings', async (req, res) => {
     })
   } catch (error) {
     console.error('Update turnstile-settings error:', error)
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
-
-router.get('/telegram-settings', async (req, res) => {
-  try {
-    const db = await getDatabase()
-    const settings = await getTelegramSettings(db, { forceRefresh: true })
-
-    res.json({
-      telegram: {
-        allowedUserIds: String(settings.allowedUserIds || ''),
-        allowedUserIdsStored: Boolean(settings.stored?.allowedUserIds),
-        notifyEnabled: Boolean(settings.notifyEnabled),
-        notifyEnabledStored: Boolean(settings.stored?.notifyEnabled),
-        notifyChatIds: String(settings.notifyChatIds || ''),
-        notifyChatIdsStored: Boolean(settings.stored?.notifyChatIds),
-        notifyTimeoutMs: Number(settings.notifyTimeoutMs || 0) || 0,
-        notifyTimeoutMsStored: Boolean(settings.stored?.notifyTimeoutMs),
-        tokenSet: Boolean(String(settings.token || '').trim()),
-        tokenStored: Boolean(settings.stored?.token)
-      }
-    })
-  } catch (error) {
-    console.error('Get telegram-settings error:', error)
-    res.status(500).json({ error: 'Internal server error' })
-  }
-})
-
-router.put('/telegram-settings', async (req, res) => {
-  try {
-    const payload = req.body?.telegram && typeof req.body.telegram === 'object' ? req.body.telegram : (req.body || {})
-    const db = await getDatabase()
-
-    const current = await getTelegramSettings(db, { forceRefresh: true })
-    const env = getTelegramSettingsFromEnv()
-
-    const allowedUserIds = String(payload.allowedUserIds ?? current.allowedUserIds ?? '').trim()
-
-    const tokenInput =
-      typeof payload.botToken === 'string'
-        ? payload.botToken.trim()
-        : (typeof payload.token === 'string' ? payload.token.trim() : '')
-
-    let token = String(current.token || '').trim()
-    let shouldUpsertToken = false
-
-    if (tokenInput) {
-      token = tokenInput
-      shouldUpsertToken = true
-    } else if (!current.stored?.token) {
-      const envToken = String(env.token || '').trim()
-      if (envToken) {
-        token = envToken
-        shouldUpsertToken = true
-      }
-    }
-
-    const notifyEnabledInput = payload.notifyEnabled ?? payload.notify_enabled ?? payload?.notify?.enabled
-    let notifyEnabled = Boolean(current.notifyEnabled)
-    let shouldUpsertNotifyEnabled = false
-    if (notifyEnabledInput !== undefined) {
-      notifyEnabled = typeof notifyEnabledInput === 'boolean'
-        ? notifyEnabledInput
-        : parseBool(notifyEnabledInput, notifyEnabled)
-      shouldUpsertNotifyEnabled = true
-    }
-
-    const notifyChatIdsInput = payload.notifyChatIds ?? payload.notify_chat_ids ?? payload?.notify?.chatIds ?? payload?.notify?.chat_ids
-    const notifyChatIds = notifyChatIdsInput !== undefined ? String(notifyChatIdsInput ?? '').trim() : ''
-    const shouldUpsertNotifyChatIds = notifyChatIdsInput !== undefined
-
-    const notifyTimeoutMsInput = payload.notifyTimeoutMs ?? payload.notify_timeout_ms ?? payload?.notify?.timeoutMs ?? payload?.notify?.timeout_ms
-    let notifyTimeoutMs = Number(current.notifyTimeoutMs || 0) || 0
-    let shouldUpsertNotifyTimeoutMs = false
-    if (notifyTimeoutMsInput !== undefined) {
-      const parsed = toInt(notifyTimeoutMsInput, Number(env.notifyTimeoutMs || 0) || 8000)
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        return res.status(400).json({ error: 'Invalid telegram notify timeout' })
-      }
-      notifyTimeoutMs = Math.min(120000, Math.max(1000, parsed))
-      shouldUpsertNotifyTimeoutMs = true
-    }
-
-    upsertSystemConfigValue(db, 'telegram_allowed_user_ids', allowedUserIds)
-    if (shouldUpsertNotifyEnabled) {
-      upsertSystemConfigValue(db, 'telegram_notify_enabled', notifyEnabled ? 'true' : 'false')
-    }
-    if (shouldUpsertNotifyChatIds) {
-      upsertSystemConfigValue(db, 'telegram_notify_chat_ids', notifyChatIds)
-    }
-    if (shouldUpsertNotifyTimeoutMs) {
-      upsertSystemConfigValue(db, 'telegram_notify_timeout_ms', String(notifyTimeoutMs))
-    }
-    if (shouldUpsertToken) {
-      upsertSystemConfigValue(db, 'telegram_bot_token', token)
-    }
-
-    saveDatabase()
-    invalidateTelegramSettingsCache()
-
-    const updated = await getTelegramSettings(db, { forceRefresh: true })
-
-    res.json({
-      telegram: {
-        allowedUserIds: String(updated.allowedUserIds || ''),
-        allowedUserIdsStored: Boolean(updated.stored?.allowedUserIds),
-        notifyEnabled: Boolean(updated.notifyEnabled),
-        notifyEnabledStored: Boolean(updated.stored?.notifyEnabled),
-        notifyChatIds: String(updated.notifyChatIds || ''),
-        notifyChatIdsStored: Boolean(updated.stored?.notifyChatIds),
-        notifyTimeoutMs: Number(updated.notifyTimeoutMs || 0) || 0,
-        notifyTimeoutMsStored: Boolean(updated.stored?.notifyTimeoutMs),
-        tokenSet: Boolean(String(updated.token || '').trim()),
-        tokenStored: Boolean(updated.stored?.token)
-      }
-    })
-  } catch (error) {
-    console.error('Update telegram-settings error:', error)
     res.status(500).json({ error: 'Internal server error' })
   }
 })

@@ -10,7 +10,6 @@ import {
   Shield,
   Menu,
   Ticket,
-  Package,
   Train,
   Settings
 } from 'lucide-vue-next'
@@ -48,8 +47,6 @@ const ICONS_BY_MENU_KEY: Record<string, any> = {
   stats: BarChart3,
   user_management: User,
   redemption_codes: Ticket,
-  xhs_orders: Package,
-  xianyu_orders: Package,
   purchase_orders: CreditCard,
   credit_orders: Coins,
   order_management: ShoppingCart,
@@ -71,8 +68,6 @@ const FALLBACK_ADMIN_MENU_TREE: AdminMenuDraftNode[] = [
     label: '订单管理',
     children: [
       { key: 'purchase_orders', path: '/admin/purchase-orders', label: '支付订单' },
-      { key: 'xhs_orders', path: '/admin/xhs-orders', label: '小红书订单' },
-      { key: 'xianyu_orders', path: '/admin/xianyu-orders', label: '闲鱼订单' },
       { key: 'credit_orders', path: '/admin/credit-orders', label: 'Credit 订单' },
       { key: 'account_recovery', path: '/admin/account-recovery', label: '补号管理' },
     ],
@@ -151,8 +146,6 @@ export const filterAdminMenuTreeByFeatureFlags = (tree: AdminMenuNode[], feature
   }
 
   const featureByMenuKey: Record<string, keyof FeatureFlagsLike> = {
-    xhs_orders: 'xhs',
-    xianyu_orders: 'xianyu',
     purchase_orders: 'payment',
     credit_orders: 'openAccounts'
   }

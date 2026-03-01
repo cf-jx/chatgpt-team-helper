@@ -25,8 +25,8 @@ export const useAppConfigStore = defineStore('app-config', () => {
   const openAccountsEnabled = ref(true)
   const openAccountsMaintenanceMessage = ref(DEFAULT_OPEN_ACCOUNTS_MAINTENANCE_MESSAGE)
   const features = ref<FeatureFlags>({
-    xhs: true,
-    xianyu: true,
+    xhs: false,
+    xianyu: false,
     payment: true,
     openAccounts: true
   })

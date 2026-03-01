@@ -89,8 +89,8 @@ const appConfigStore = useAppConfigStore()
 
 // 功能开关（仅超级管理员）
 const featureFlags = ref({
-  xhs: true,
-  xianyu: true,
+  xhs: false,
+  xianyu: false,
   payment: true,
   openAccounts: true
 })
@@ -203,23 +203,6 @@ const turnstileSuccess = ref('')
 const turnstileLoading = ref(false)
 const showTurnstileSecretKey = ref(false)
 
-// Telegram Bot 配置（仅超级管理员）
-const telegramAllowedUserIds = ref('')
-const telegramAllowedUserIdsStored = ref(false)
-const telegramBotToken = ref('')
-const telegramTokenSet = ref(false)
-const telegramTokenStored = ref(false)
-const telegramNotifyEnabled = ref<'true' | 'false'>('true')
-const telegramNotifyEnabledStored = ref(false)
-const telegramNotifyChatIds = ref('')
-const telegramNotifyChatIdsStored = ref(false)
-const telegramNotifyTimeoutMs = ref('8000')
-const telegramNotifyTimeoutMsStored = ref(false)
-const telegramError = ref('')
-const telegramSuccess = ref('')
-const telegramLoading = ref(false)
-const showTelegramBotToken = ref(false)
-
 onMounted(async () => {
   await nextTick()
   teleportReady.value = !!document.getElementById('header-actions')
@@ -238,7 +221,6 @@ onMounted(async () => {
     loadLinuxDoCreditSettings(),
     loadZpaySettings(),
     loadTurnstileSettings(),
-    loadTelegramSettings(),
   ])
 })
 
@@ -262,8 +244,8 @@ const loadFeatureFlags = async () => {
     const response = await adminService.getFeatureFlags()
     const next = response.features || {}
     featureFlags.value = {
-      xhs: next.xhs !== false,
-      xianyu: next.xianyu !== false,
+      xhs: false,
+      xianyu: false,
       payment: next.payment !== false,
       openAccounts: next.openAccounts !== false
     }
@@ -278,13 +260,19 @@ const saveFeatureFlags = async () => {
   featureFlagsSuccess.value = ''
   featureFlagsLoading.value = true
   try {
+    const payload = {
+      xhs: false,
+      xianyu: false,
+      payment: featureFlags.value.payment,
+      openAccounts: featureFlags.value.openAccounts
+    }
     const response = await adminService.updateFeatureFlags({
-      features: { ...featureFlags.value }
+      features: payload
     })
     const next = response.features || {}
     featureFlags.value = {
-      xhs: next.xhs !== false,
-      xianyu: next.xianyu !== false,
+      xhs: false,
+      xianyu: false,
       payment: next.payment !== false,
       openAccounts: next.openAccounts !== false
     }
@@ -559,10 +547,6 @@ const toggleShowTurnstileSecretKey = () => {
   showTurnstileSecretKey.value = !showTurnstileSecretKey.value
 }
 
-const toggleShowTelegramBotToken = () => {
-  showTelegramBotToken.value = !showTelegramBotToken.value
-}
-
 const loadEmailDomainWhitelist = async () => {
   emailDomainWhitelistError.value = ''
   emailDomainWhitelistSuccess.value = ''
@@ -833,97 +817,6 @@ const saveTurnstileSettings = async () => {
     turnstileError.value = err.response?.data?.error || '保存失败'
   } finally {
     turnstileLoading.value = false
-  }
-}
-
-const loadTelegramSettings = async () => {
-  telegramError.value = ''
-  telegramSuccess.value = ''
-  try {
-    const response = await adminService.getTelegramSettings()
-    telegramAllowedUserIds.value = response.telegram?.allowedUserIds || ''
-    telegramAllowedUserIdsStored.value = Boolean(response.telegram?.allowedUserIdsStored)
-    telegramBotToken.value = ''
-    telegramTokenSet.value = Boolean(response.telegram?.tokenSet)
-    telegramTokenStored.value = Boolean(response.telegram?.tokenStored)
-    telegramNotifyEnabled.value = response.telegram?.notifyEnabled === false ? 'false' : 'true'
-    telegramNotifyEnabledStored.value = Boolean(response.telegram?.notifyEnabledStored)
-    telegramNotifyChatIds.value = response.telegram?.notifyChatIds || ''
-    telegramNotifyChatIdsStored.value = Boolean(response.telegram?.notifyChatIdsStored)
-    telegramNotifyTimeoutMs.value = String(response.telegram?.notifyTimeoutMs ?? 8000)
-    telegramNotifyTimeoutMsStored.value = Boolean(response.telegram?.notifyTimeoutMsStored)
-  } catch (err: any) {
-    telegramError.value = err.response?.data?.error || '加载 Telegram 配置失败'
-  }
-}
-
-const saveTelegramSettings = async () => {
-  telegramError.value = ''
-  telegramSuccess.value = ''
-
-  const allowedIdsRaw = telegramAllowedUserIds.value.trim()
-  if (allowedIdsRaw) {
-    const items = allowedIdsRaw
-      .split(',')
-      .map(item => item.trim())
-      .filter(Boolean)
-    const invalid = items.find(item => !/^\d+$/.test(item))
-    if (invalid) {
-      telegramError.value = `允许的用户 ID 格式不正确：${invalid}`
-      return
-    }
-  }
-
-  const notifyChatIdsRaw = telegramNotifyChatIds.value.trim()
-  if (notifyChatIdsRaw) {
-    const items = notifyChatIdsRaw
-      .split(',')
-      .map(item => item.trim())
-      .filter(Boolean)
-    const invalid = items.find(item => !/^-?\d+$/.test(item) && !/^@[\w_]{5,32}$/.test(item))
-    if (invalid) {
-      telegramError.value = `通知 chat_id 格式不正确：${invalid}`
-      return
-    }
-  }
-
-  const notifyTimeoutRaw = telegramNotifyTimeoutMs.value.trim()
-  const notifyTimeoutMs = Number.parseInt(notifyTimeoutRaw, 10)
-  if (!Number.isFinite(notifyTimeoutMs) || notifyTimeoutMs <= 0) {
-    telegramError.value = '通知超时时间需为正整数（毫秒）'
-    return
-  }
-
-  telegramLoading.value = true
-  try {
-    const payload: any = { telegram: { allowedUserIds: allowedIdsRaw } }
-    const tokenTrimmed = telegramBotToken.value.trim()
-    if (tokenTrimmed) {
-      payload.telegram.botToken = tokenTrimmed
-    }
-    payload.telegram.notifyEnabled = telegramNotifyEnabled.value === 'true'
-    payload.telegram.notifyChatIds = notifyChatIdsRaw
-    payload.telegram.notifyTimeoutMs = notifyTimeoutMs
-
-    const response = await adminService.updateTelegramSettings(payload)
-    telegramAllowedUserIds.value = response.telegram?.allowedUserIds || allowedIdsRaw
-    telegramAllowedUserIdsStored.value = Boolean(response.telegram?.allowedUserIdsStored)
-    telegramBotToken.value = ''
-    telegramTokenSet.value = Boolean(response.telegram?.tokenSet)
-    telegramTokenStored.value = Boolean(response.telegram?.tokenStored)
-    telegramNotifyEnabled.value = response.telegram?.notifyEnabled === false ? 'false' : 'true'
-    telegramNotifyEnabledStored.value = Boolean(response.telegram?.notifyEnabledStored)
-    telegramNotifyChatIds.value = response.telegram?.notifyChatIds || notifyChatIdsRaw
-    telegramNotifyChatIdsStored.value = Boolean(response.telegram?.notifyChatIdsStored)
-    telegramNotifyTimeoutMs.value = String(response.telegram?.notifyTimeoutMs ?? notifyTimeoutMs)
-    telegramNotifyTimeoutMsStored.value = Boolean(response.telegram?.notifyTimeoutMsStored)
-
-    telegramSuccess.value = '已保存（Bot Token 修改需重启后端生效；通知配置实时生效）'
-    setTimeout(() => (telegramSuccess.value = ''), 3000)
-  } catch (err: any) {
-    telegramError.value = err.response?.data?.error || '保存失败'
-  } finally {
-    telegramLoading.value = false
   }
 }
 
@@ -1297,28 +1190,6 @@ const savePointsWithdrawSettings = async () => {
         </CardHeader>
         <CardContent class="p-6 sm:p-8 space-y-5 flex-1">
           <div class="space-y-3">
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              <div class="space-y-1">
-                <p class="font-medium text-gray-900">小红书（订单同步/兑换）</p>
-              </div>
-              <input
-                type="checkbox"
-                v-model="featureFlags.xhs"
-                class="w-6 h-6 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-            </div>
-
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              <div class="space-y-1">
-                <p class="font-medium text-gray-900">闲鱼（订单同步/兑换）</p>
-              </div>
-              <input
-                type="checkbox"
-                v-model="featureFlags.xianyu"
-                class="w-6 h-6 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-            </div>
-
             <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
               <div class="space-y-1">
                 <p class="font-medium text-gray-900">支付（ZPAY）</p>
@@ -2094,131 +1965,7 @@ const savePointsWithdrawSettings = async () => {
         </CardContent>
       </Card>
 
-      <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:col-span-2">
-        <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
-          <CardTitle class="text-xl font-bold text-gray-900">Telegram Bot 配置</CardTitle>
-          <CardDescription class="text-gray-500">用于 Telegram 兑换机器人与系统通知。</CardDescription>
-        </CardHeader>
-        <CardContent class="p-6 sm:p-8 space-y-6 flex-1">
-          <div class="grid gap-4 lg:grid-cols-2">
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Bot Token</Label>
-              <div class="relative">
-                <Input
-                  v-model="telegramBotToken"
-                  :type="showTelegramBotToken ? 'text' : 'password'"
-                  placeholder="留空表示不修改"
-                  class="h-11 pr-10 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                  :disabled="telegramLoading"
-                />
-                <button
-                  type="button"
-                  @click="toggleShowTelegramBotToken"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <EyeOff v-if="showTelegramBotToken" class="h-4 w-4" />
-                  <Eye v-else class="h-4 w-4" />
-                </button>
-              </div>
-              <p class="text-xs text-gray-400">
-                <template v-if="telegramTokenStored">Token 已入库；留空表示不修改。</template>
-                <template v-else-if="telegramTokenSet">Token 未入库；保存时可从 .env 自动迁移或在此重新填写。</template>
-                <template v-else>未设置 Token。</template>
-              </p>
-            </div>
-
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">允许的用户 ID (可选)</Label>
-              <Input
-                v-model="telegramAllowedUserIds"
-                type="text"
-                placeholder="123456,789012"
-                class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                :disabled="telegramLoading"
-              />
-              <p class="text-xs text-gray-400">留空表示对所有用户开放；填写后仅允许这些 Telegram User ID。</p>
-            </div>
-          </div>
-
-          <div class="grid gap-4 lg:grid-cols-3">
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">通知开关</Label>
-              <Select v-model="telegramNotifyEnabled" :disabled="telegramLoading">
-                <SelectTrigger class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all">
-                  <SelectValue placeholder="选择" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">启用通知</SelectItem>
-                  <SelectItem value="false">禁用通知</SelectItem>
-                </SelectContent>
-              </Select>
-              <p class="text-xs text-gray-400">
-                <template v-if="telegramNotifyEnabledStored">已入库。</template>
-                <template v-else>未入库（当前值可能来自 .env）。</template>
-              </p>
-            </div>
-
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">通知 chat_id (可选)</Label>
-              <Input
-                v-model="telegramNotifyChatIds"
-                type="text"
-                placeholder="-1001234567890,@channelname"
-                class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                :disabled="telegramLoading"
-              />
-              <p class="text-xs text-gray-400">
-                <template v-if="telegramNotifyChatIdsStored">已入库。</template>
-                <template v-else>未入库（当前值可能来自 .env）。</template>
-                留空则默认发送给「允许的用户 ID」；支持用户ID/群ID（-100...）/频道（@xxx），逗号分隔。
-              </p>
-            </div>
-
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">通知超时（毫秒）</Label>
-              <Input
-                v-model="telegramNotifyTimeoutMs"
-                type="text"
-                placeholder="8000"
-                class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                :disabled="telegramLoading"
-              />
-              <p class="text-xs text-gray-400">
-                <template v-if="telegramNotifyTimeoutMsStored">已入库。</template>
-                <template v-else>未入库（当前值可能来自 .env）。</template>
-              </p>
-            </div>
-          </div>
-
-          <div v-if="telegramError" class="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100 text-sm font-medium">
-            {{ telegramError }}
-          </div>
-
-          <div v-if="telegramSuccess" class="rounded-xl bg-green-50 p-4 text-green-600 border border-green-100 text-sm font-medium">
-            {{ telegramSuccess }}
-          </div>
-
-          <div class="flex flex-col sm:flex-row gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              class="w-full sm:w-auto h-11 rounded-xl"
-              :disabled="telegramLoading"
-              @click="loadTelegramSettings"
-            >
-              刷新
-            </Button>
-            <Button
-              type="button"
-              class="w-full sm:flex-1 h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5"
-              :disabled="telegramLoading"
-              @click="saveTelegramSettings"
-            >
-              {{ telegramLoading ? '保存中...' : '保存 Telegram 配置' }}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      
 
       <!-- 积分提现设置 -->
       <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:col-span-2">

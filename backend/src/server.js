@@ -11,8 +11,6 @@ import linuxDoAuthRoutes from './routes/linuxdo-auth.js'
 import waitingRoomRoutes from './routes/waiting-room.js'
 import configRoutes from './routes/config.js'
 import versionRoutes from './routes/version.js'
-import xhsRoutes from './routes/xhs.js'
-import xianyuRoutes from './routes/xianyu.js'
 import openAccountsRoutes from './routes/open-accounts.js'
 import purchaseRoutes from './routes/purchase.js'
 import creditRoutes from './routes/credit.js'
@@ -25,10 +23,6 @@ import { startWaitingRoomAutoBoardingScheduler } from './services/waiting-room-a
 import { startOpenAccountsOvercapacitySweeper } from './services/open-accounts-sweeper.js'
 import { startOrderExpirationSweeper } from './services/order-expiration-sweeper.js'
 import { startCreditOrderActionSweeper } from './services/credit-order-action-sweeper.js'
-import { startTelegramBot } from './services/telegram-bot.js'
-import { startXianyuLoginRefreshScheduler } from './services/xianyu-login-refresh.js'
-import { startXhsAutoSyncScheduler } from './services/xhs-auto-sync.js'
-import { startXianyuWsDeliveryBot } from './services/xianyu-ws-delivery.js'
 
 dotenv.config()
 
@@ -101,19 +95,13 @@ initDatabase()
     const dbPath = process.env.DATABASE_PATH || './db/database.sqlite'
     console.log(`Database initialized at: ${dbPath}`)
 
-	    startWaitingRoomAutoBoardingScheduler()
-	    startOpenAccountsOvercapacitySweeper()
-	    startOrderExpirationSweeper()
-	    startCreditOrderActionSweeper()
-	    await startTelegramBot().catch(error => {
-	      console.error('[Telegram Bot] start failed:', error)
-	    })
-	    startXianyuLoginRefreshScheduler()
-	    startXianyuWsDeliveryBot()
-	    startXhsAutoSyncScheduler()
+    startWaitingRoomAutoBoardingScheduler()
+    startOpenAccountsOvercapacitySweeper()
+    startOrderExpirationSweeper()
+    startCreditOrderActionSweeper()
 
-	    startServer()
-	  })
+    startServer()
+  })
   .catch(error => {
     console.error('Failed to initialize database:', error)
     startServer()
@@ -131,8 +119,6 @@ app.use('/api/linuxdo', linuxDoAuthRoutes)
 app.use('/api/config', configRoutes)
 app.use('/api/version', versionRoutes)
 app.use('/api/waiting-room', waitingRoomRoutes)
-app.use('/api/xhs', xhsRoutes)
-app.use('/api/xianyu', xianyuRoutes)
 app.use('/api/open-accounts', openAccountsRoutes)
 app.use('/api/purchase', purchaseRoutes)
 app.use('/api/credit', creditRoutes)

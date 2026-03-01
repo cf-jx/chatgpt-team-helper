@@ -1,4 +1,5 @@
 import { getDatabase } from '../database/init.js'
+import { getFeatureFlags } from './feature-flags.js'
 
 export const CHANNEL_KEY_REGEX = /^[a-z0-9-]{2,32}$/
 
@@ -48,6 +49,27 @@ const loadChannelsFromDb = (database) => {
   return { list, byKey }
 }
 
+const applyFeatureFlagsToChannels = (channelsState, featureFlags) => {
+  const state = channelsState && typeof channelsState === 'object'
+    ? channelsState
+    : { list: [], byKey: new Map() }
+
+  const disabledKeys = new Set()
+  if (featureFlags?.xhs === false) disabledKeys.add('xhs')
+  if (featureFlags?.xianyu === false) disabledKeys.add('xianyu')
+  if (!disabledKeys.size) return state
+
+  const list = (state.list || []).map((channel) => {
+    if (!disabledKeys.has(channel.key)) return channel
+    return {
+      ...channel,
+      isActive: false
+    }
+  })
+  const byKey = new Map(list.map(channel => [channel.key, channel]))
+  return { list, byKey }
+}
+
 export const invalidateChannelsCache = () => {
   cached = { list: [], byKey: new Map() }
   cachedAt = 0
@@ -61,7 +83,9 @@ export async function getChannels(db, { forceRefresh = false } = {}) {
 
   const database = db || (await getDatabase())
   try {
-    cached = loadChannelsFromDb(database)
+    const channelsState = loadChannelsFromDb(database)
+    const featureFlags = await getFeatureFlags(database)
+    cached = applyFeatureFlagsToChannels(channelsState, featureFlags)
     cachedAt = now
     return cached
   } catch (error) {

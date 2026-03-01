@@ -178,8 +178,8 @@ const redirectTargets: Record<string, string> = {
   '': '/redeem/common',
   'common': '/redeem/common',
   'linux-do': '/redeem/linux-do',
-  'xhs': '/redeem/xhs',
-  'xianyu': '/redeem/xianyu',
+  'xhs': '/feature-disabled/xhs',
+  'xianyu': '/feature-disabled/xianyu',
   'open-accounts': '/redeem/open-accounts',
   'account-recovery': '/redeem/account-recovery',
 }

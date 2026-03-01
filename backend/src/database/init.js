@@ -49,7 +49,7 @@ const BUILTIN_CHANNELS = [
     name: CHANNEL_LABELS.xhs,
     redeemMode: 'xhs',
     allowCommonFallback: 1,
-    isActive: 1,
+    isActive: 0,
     isBuiltin: 1,
     sortOrder: 40
   },
@@ -58,7 +58,7 @@ const BUILTIN_CHANNELS = [
     name: CHANNEL_LABELS.xianyu,
     redeemMode: 'xianyu',
     allowCommonFallback: 1,
-    isActive: 1,
+    isActive: 0,
     isBuiltin: 1,
     sortOrder: 50
   },
@@ -345,8 +345,6 @@ const ensureRbacTables = (database) => {
       { key: 'redemption_codes', label: '兑换码管理', path: '/admin/redemption-codes', sortOrder: 4 },
       { key: 'order_management', label: '订单管理', path: '', sortOrder: 6 },
       { key: 'purchase_orders', label: '支付订单', path: '/admin/purchase-orders', parentKey: 'order_management', sortOrder: 1 },
-      { key: 'xhs_orders', label: '小红书订单', path: '/admin/xhs-orders', parentKey: 'order_management', sortOrder: 2 },
-      { key: 'xianyu_orders', label: '闲鱼订单', path: '/admin/xianyu-orders', parentKey: 'order_management', sortOrder: 3 },
       { key: 'credit_orders', label: 'Credit 订单', path: '/admin/credit-orders', parentKey: 'order_management', sortOrder: 4 },
       { key: 'account_recovery', label: '补号管理', path: '/admin/account-recovery', parentKey: 'order_management', sortOrder: 5 },
       { key: 'permission_management', label: '权限管理', path: '', sortOrder: 7 },

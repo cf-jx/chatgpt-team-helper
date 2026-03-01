@@ -615,127 +615,6 @@ export interface PurchaseOrderQueryResponse {
   refundMeta?: any
 }
 
-export interface XhsConfig {
-  id: number
-  syncEnabled: boolean
-  syncIntervalHours: number
-  lastSyncAt?: string | null
-  lastSuccessAt?: string | null
-  lastError?: string | null
-  errorCount?: number
-  updatedAt?: string
-  cookiesConfigured?: boolean
-  authorizationConfigured?: boolean
-  extraHeadersConfigured?: boolean
-}
-
-export interface XhsOrder {
-  id: number
-  orderNumber: string
-  orderTime?: string | null
-  nickname?: string | null
-  orderStatus?: string | null
-  status: 'pending' | 'redeemed' | 'used' | string
-  userEmail?: string | null
-  assignedCodeId?: number | null
-  assignedCode?: string | null
-  isUsed: boolean
-  extractedAt?: string | null
-  reservedAt?: string | null
-  usedAt?: string | null
-  createdAt?: string | null
-  updatedAt?: string | null
-  redemptionCode?: string | null
-  redemptionChannel?: RedemptionChannel | null
-}
-
-export interface XhsStats {
-  total: number
-  used: number
-  pending: number
-  today: number
-}
-
-export interface XhsStatus {
-  cookiesConfigured: boolean
-  lastSyncAt?: string | null
-  lastSuccessAt?: string | null
-  lastError?: string | null
-  errorCount?: number
-  syncEnabled: boolean
-  syncIntervalHours: number
-  isSyncing: boolean
-  lastSyncResult?: {
-    success: boolean
-    created?: number
-    skipped?: number
-    total?: number
-    error?: string
-    startedAt?: string
-    finishedAt?: string
-  } | null
-}
-
-export interface XianyuConfig {
-  id: number
-  syncEnabled: boolean
-  syncIntervalHours: number
-  lastSyncAt?: string | null
-  lastSuccessAt?: string | null
-  lastError?: string | null
-  errorCount?: number
-  updatedAt?: string
-  cookiesConfigured?: boolean
-}
-
-export interface XianyuOrder {
-  id: number
-  orderId: string
-  orderTime?: string | null
-  nickname?: string | null
-  orderStatus?: string | null
-  status: 'pending' | 'redeemed' | 'used' | string
-  userEmail?: string | null
-  assignedCodeId?: number | null
-  assignedCode?: string | null
-  isUsed: boolean
-  extractedAt?: string | null
-  reservedAt?: string | null
-  usedAt?: string | null
-  createdAt?: string | null
-  updatedAt?: string | null
-  redemptionCode?: string | null
-  redemptionChannel?: RedemptionChannel | null
-  actualPaid?: number | null
-}
-
-export interface XianyuStats {
-  total: number
-  used: number
-  pending: number
-  today: number
-}
-
-export interface XianyuStatus {
-  cookiesConfigured: boolean
-  lastSyncAt?: string | null
-  lastSuccessAt?: string | null
-  lastError?: string | null
-  errorCount?: number
-  syncEnabled: boolean
-  syncIntervalHours: number
-  isSyncing: boolean
-  lastSyncResult?: {
-    success: boolean
-    created?: number
-    skipped?: number
-    total?: number
-    error?: string
-    startedAt?: string
-    finishedAt?: string
-  } | null
-}
-
 export interface LinuxDoUser {
   id: number
   username: string
@@ -994,21 +873,6 @@ export interface AdminTurnstileSettingsResponse {
   enabled: boolean
 }
 
-export interface AdminTelegramSettingsResponse {
-  telegram: {
-    allowedUserIds: string
-    allowedUserIdsStored?: boolean
-    notifyEnabled?: boolean
-    notifyEnabledStored?: boolean
-    notifyChatIds?: string
-    notifyChatIdsStored?: boolean
-    notifyTimeoutMs?: number
-    notifyTimeoutMsStored?: boolean
-    tokenSet: boolean
-    tokenStored?: boolean
-  }
-}
-
 export interface RbacMenu {
   id: number
   menuKey: string
@@ -1189,24 +1053,6 @@ export const adminService = {
 
   async updateTurnstileSettings(payload: { turnstile: { siteKey: string; secretKey?: string } }): Promise<AdminTurnstileSettingsResponse> {
     const response = await api.put('/admin/turnstile-settings', payload)
-    return response.data
-  },
-
-  async getTelegramSettings(): Promise<AdminTelegramSettingsResponse> {
-    const response = await api.get('/admin/telegram-settings')
-    return response.data
-  },
-
-  async updateTelegramSettings(payload: {
-    telegram: {
-      allowedUserIds: string
-      botToken?: string
-      notifyEnabled?: boolean
-      notifyChatIds?: string
-      notifyTimeoutMs?: number
-    }
-  }): Promise<AdminTelegramSettingsResponse> {
-    const response = await api.put('/admin/telegram-settings', payload)
     return response.data
   },
 
@@ -2022,60 +1868,6 @@ export const redemptionCodeService = {
     return response
   },
 
-  async redeemXhsOrder(data: { email: string; orderNumber: string }): Promise<any> {
-    const response = await axios.post(`${API_URL}/redemption-codes/xhs/redeem-order`, data, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    return response
-  },
-
-  async checkXhsOrder(data: { orderNumber: string }): Promise<any> {
-    const response = await axios.post(`${API_URL}/redemption-codes/xhs/check-order`, data, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    return response
-  },
-
-  async syncXhsOrder(data: { orderNumber: string }): Promise<any> {
-    const response = await axios.post(`${API_URL}/redemption-codes/xhs/search-order`, data, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    return response
-  },
-
-  async redeemXianyuOrder(data: { email: string; orderId: string }): Promise<any> {
-    const response = await axios.post(`${API_URL}/redemption-codes/xianyu/redeem-order`, data, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    return response
-  },
-
-  async checkXianyuOrder(data: { orderId: string }): Promise<any> {
-    const response = await axios.post(`${API_URL}/redemption-codes/xianyu/check-order`, data, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    return response
-  },
-
-  async syncXianyuOrder(data: { orderId: string }): Promise<any> {
-    const response = await axios.post(`${API_URL}/redemption-codes/xianyu/search-order`, data, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    return response
-  },
-
   async updateChannel(id: number, channel: RedemptionChannel): Promise<{ message: string; code: RedemptionCode }> {
     const response = await api.patch(`/redemption-codes/${id}/channel`, { channel })
     return response.data
@@ -2257,95 +2049,6 @@ export const purchaseService = {
 
   async myBindOrder(orderNo: string): Promise<{ message: string; order: PurchaseOrder }> {
     const response = await api.post('/purchase/my/orders/bind', { orderNo })
-    return response.data
-  },
-}
-
-export const xhsService = {
-  async getConfig(): Promise<{ config: XhsConfig | null }> {
-    const response = await api.get('/xhs/config')
-    return response.data
-  },
-
-  async updateConfig(payload: Partial<{ curlCommand: string; cookies: string; authorization: string; syncEnabled: boolean; syncIntervalHours: number }>): Promise<{ message: string; config: XhsConfig | null }> {
-    const response = await api.post('/xhs/config', payload)
-    return response.data
-  },
-
-  async getStatus(): Promise<{ status: XhsStatus; stats: XhsStats }> {
-    const response = await api.get('/xhs/status')
-    return response.data
-  },
-
-  async syncOrders(payload: { searchOrder?: string }): Promise<{ message: string; result: { created: number; skipped: number; total: number } }> {
-    const response = await api.post('/xhs/sync', payload)
-    return response.data
-  },
-
-  async apiSync(payload: { searchKeyword?: string; pageSize?: number; maxPages?: number }): Promise<{ message: string; result: { created: number; skipped: number; totalFetched: number; pages: number } }> {
-    const response = await api.post('/xhs/api-sync', payload)
-    return response.data
-  },
-
-  async getOrders(params: { limit?: number; offset?: number } = {}): Promise<{ orders: XhsOrder[]; stats: XhsStats }> {
-    const response = await api.get('/xhs/orders', { params })
-    return response.data
-  },
-
-  async clearOrders(): Promise<{ message: string; cleared: number }> {
-    const response = await api.post('/xhs/orders/clear')
-    return response.data
-  },
-
-  async deleteOrder(id: number): Promise<{ message: string }> {
-    const response = await api.delete(`/xhs/orders/${id}`)
-    return response.data
-  },
-
-  async bindOrderCode(id: number, payload: { code: string; email?: string }): Promise<{ message: string; order: XhsOrder | null }> {
-    const response = await api.post(`/xhs/orders/${id}/bind-code`, payload)
-    return response.data
-  },
-}
-
-export const xianyuService = {
-  async getConfig(): Promise<{ config: XianyuConfig | null }> {
-    const response = await api.get('/xianyu/config')
-    return response.data
-  },
-
-  async updateConfig(payload: Partial<{ cookies: string; syncEnabled: boolean; syncIntervalHours: number }>): Promise<{ message: string; config: XianyuConfig | null }> {
-    const response = await api.post('/xianyu/config', payload)
-    return response.data
-  },
-
-  async getStatus(): Promise<{ status: XianyuStatus; stats: XianyuStats }> {
-    const response = await api.get('/xianyu/status')
-    return response.data
-  },
-
-  async syncOrder(payload: { orderId: string }): Promise<{ message: string; result: { created: number; skipped: number; total: number }; order: XianyuOrder; synced: boolean }> {
-    const response = await api.post('/xianyu/sync', payload)
-    return response.data
-  },
-
-  async getOrders(params: { limit?: number; offset?: number } = {}): Promise<{ orders: XianyuOrder[]; stats: XianyuStats }> {
-    const response = await api.get('/xianyu/orders', { params })
-    return response.data
-  },
-
-  async clearOrders(): Promise<{ message: string; cleared: number }> {
-    const response = await api.post('/xianyu/orders/clear')
-    return response.data
-  },
-
-  async deleteOrder(id: number): Promise<{ message: string }> {
-    const response = await api.delete(`/xianyu/orders/${id}`)
-    return response.data
-  },
-
-  async bindOrderCode(id: number, payload: { code: string; email?: string }): Promise<{ message: string; order: XianyuOrder | null }> {
-    const response = await api.post(`/xianyu/orders/${id}/bind-code`, payload)
     return response.data
   },
 }
