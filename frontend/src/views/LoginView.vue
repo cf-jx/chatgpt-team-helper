@@ -83,19 +83,14 @@ const handleLogin = async () => {
             {{ error }}
           </div>
 
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             class="w-full h-12 rounded-2xl bg-gray-900 hover:bg-black text-white font-medium text-[15px] shadow-lg shadow-gray-200/50 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 mt-2"
             :disabled="loading"
           >
             <span v-if="loading" class="mr-2 w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
             {{ loading ? '正在登录...' : '登 录' }}
           </Button>
-
-          <div class="text-center text-sm text-gray-500 font-medium">
-            没有账号？
-            <router-link to="/register" class="text-gray-900 hover:underline">去注册</router-link>
-          </div>
         </form>
       </div>
       

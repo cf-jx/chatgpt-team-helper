@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { API_URL, authService, gptAccountService, openaiOAuthService, userService, type AccountStatus, type CheckAccountStatusItem, type CheckAccountStatusResponse, type GptAccount, type CreateGptAccountDto, type SyncUserCountResponse, type GptAccountsListParams, type ChatgptAccountInviteItem, type ChatgptAccountCheckInfo, type OpenAIOAuthSession, type OpenAIOAuthExchangeResult } from '@/services/api'
+import { API_URL, authService, gptAccountService, userService, type AccountStatus, type CheckAccountStatusItem, type CheckAccountStatusResponse, type GptAccount, type CreateGptAccountDto, type SyncUserCountResponse, type GptAccountsListParams, type ChatgptAccountCheckInfo } from '@/services/api'
 import { formatShanghaiDate } from '@/lib/datetime'
 import { useAppConfigStore } from '@/stores/appConfig'
 import {
@@ -87,12 +87,7 @@ const showSyncResultDialog = ref(false)
 const syncResult = ref<SyncUserCountResponse | null>(null)
 const syncError = ref('')
 const previousUserCount = ref<number | null>(null)
-const previousInviteCount = ref<number | null>(null)
 const deletingUserId = ref<string | null>(null)
-const revokingInviteEmail = ref<string | null>(null)
-const showInviteForm = ref(false)
-const inviteEmail = ref('')
-const inviting = ref(false)
 const togglingOpenAccountId = ref<number | null>(null)
 const banningAccountId = ref<number | null>(null)
 
@@ -109,10 +104,7 @@ const checkResult = ref<CheckAccountStatusResponse | null>(null)
 const resultFilter = ref<CheckResultFilter>('abnormal')
 let checkAbortController: AbortController | null = null
 
-// Tab 和 邀请列表状态
-const activeTab = ref<'members' | 'invites'>('members')
-const invitesList = ref<ChatgptAccountInviteItem[]>([])
-const loadingInvites = ref(false)
+// 邀请列表状态
 const resyncingAfterAction = ref(false)
 const RESYNC_AFTER_ACTION_DELAY_MS = 3000
 let resyncAfterActionTimer: ReturnType<typeof setTimeout> | null = null
@@ -126,24 +118,13 @@ const formData = ref<CreateGptAccountDto>({
   isBanned: false,
   chatgptAccountId: '',
   oaiDeviceId: '',
+  idNumber: '',
   expireAt: ''
 })
 
 const checkingAccessToken = ref(false)
 const checkedChatgptAccounts = ref<ChatgptAccountCheckInfo[]>([])
 const checkAccessTokenError = ref('')
-
-// OpenAI OAuth: 从授权码获取 refresh token（会话有效期 10 分钟）
-const showOpenaiOAuthPanel = ref(false)
-const openaiOAuthSession = ref<OpenAIOAuthSession | null>(null)
-const openaiOAuthResult = ref<OpenAIOAuthExchangeResult | null>(null)
-const openaiOAuthInput = ref('')
-const openaiOAuthError = ref('')
-const generatingOpenaiAuthUrl = ref(false)
-const exchangingOpenaiCode = ref(false)
-const cachedApiKey = ref<string>('')
-const cachedApiKeyConfigured = ref<boolean | null>(null)
-let openaiOAuthFlowNonce = 0
 
 const resolveRequestError = (err: any, fallback: string) => {
   return (
@@ -168,33 +149,6 @@ const logHttpErrorWithBody = (label: string, err: any) => {
   }
 }
 
-const ensureSystemApiKey = async (): Promise<string | null> => {
-  if (cachedApiKey.value) return cachedApiKey.value
-
-  try {
-    const result = await userService.getApiKey()
-    const apiKey = typeof result?.apiKey === 'string' ? result.apiKey.trim() : ''
-    cachedApiKeyConfigured.value = typeof result?.configured === 'boolean' ? result.configured : null
-    if (!apiKey) return null
-    cachedApiKey.value = apiKey
-    return apiKey
-  } catch (err) {
-    cachedApiKeyConfigured.value = null
-    return null
-  }
-}
-
-const resetOpenaiOAuthFlow = () => {
-  openaiOAuthFlowNonce += 1
-  showOpenaiOAuthPanel.value = false
-  openaiOAuthSession.value = null
-  openaiOAuthResult.value = null
-  openaiOAuthInput.value = ''
-  openaiOAuthError.value = ''
-  generatingOpenaiAuthUrl.value = false
-  exchangingOpenaiCode.value = false
-}
-
 const copyText = async (value: string, successMessage: string) => {
   if (!value) return
   try {
@@ -203,182 +157,6 @@ const copyText = async (value: string, successMessage: string) => {
   } catch (error) {
     console.error('Copy failed', error)
     showErrorToast('复制失败，请手动复制')
-  }
-}
-
-const extractOAuthCode = (value: string): string => {
-  const raw = String(value || '').trim()
-  if (!raw) return ''
-
-  try {
-    const url = new URL(raw)
-    const code = url.searchParams.get('code')
-    if (code) return code
-  } catch {
-    // ignore
-  }
-
-  const match = raw.match(/[?&]code=([^&#]+)/)
-  if (match?.[1]) {
-    try {
-      return decodeURIComponent(match[1])
-    } catch {
-      return match[1]
-    }
-  }
-
-  return raw
-}
-
-const generateOpenaiAuthUrl = async () => {
-  const currentNonce = openaiOAuthFlowNonce
-  openaiOAuthError.value = ''
-  openaiOAuthResult.value = null
-  openaiOAuthInput.value = ''
-
-  const apiKey = await ensureSystemApiKey()
-  if (!apiKey) {
-    const message =
-      cachedApiKeyConfigured.value === false
-        ? '系统未配置 API Key，请先到「系统设置」配置后再试'
-        : '获取 API Key 失败（需要系统设置权限）'
-    openaiOAuthError.value = message
-    showErrorToast(message)
-    return
-  }
-
-  try {
-    generatingOpenaiAuthUrl.value = true
-    const session = await openaiOAuthService.generateAuthUrl(apiKey)
-    if (currentNonce !== openaiOAuthFlowNonce) return
-    openaiOAuthSession.value = session
-    showOpenaiOAuthPanel.value = true
-  } catch (err: any) {
-    if (currentNonce !== openaiOAuthFlowNonce) return
-    openaiOAuthError.value = resolveRequestError(err, '生成授权链接失败')
-    showErrorToast(openaiOAuthError.value)
-  } finally {
-    if (currentNonce === openaiOAuthFlowNonce) {
-      generatingOpenaiAuthUrl.value = false
-    }
-  }
-}
-
-const handleClickGetRefreshToken = async () => {
-  showOpenaiOAuthPanel.value = true
-  if (openaiOAuthSession.value?.authUrl && openaiOAuthSession.value?.sessionId) return
-  await generateOpenaiAuthUrl()
-}
-
-const handleOpenAuthUrl = () => {
-  const url = String(openaiOAuthSession.value?.authUrl || '').trim()
-  if (!url) return
-  try {
-    window.open(url, '_blank', 'noopener,noreferrer')
-  } catch (error) {
-    console.error('Open auth url failed', error)
-    showErrorToast('打开失败，请复制链接到浏览器打开')
-  }
-}
-
-const handleExchangeOpenaiCode = async () => {
-  const currentNonce = openaiOAuthFlowNonce
-  const sessionId = String(openaiOAuthSession.value?.sessionId || '').trim()
-  if (!sessionId) {
-    showErrorToast('请先点击“获取”生成授权链接')
-    return
-  }
-
-  const code = extractOAuthCode(openaiOAuthInput.value)
-  if (!code) {
-    showErrorToast('请粘贴回调 URL 或授权码（code）')
-    return
-  }
-
-  const apiKey = await ensureSystemApiKey()
-  if (!apiKey) {
-    const message = '获取 API Key 失败（需要系统设置权限）'
-    openaiOAuthError.value = message
-    showErrorToast(message)
-    return
-  }
-
-  try {
-    exchangingOpenaiCode.value = true
-    openaiOAuthError.value = ''
-    const result = await openaiOAuthService.exchangeCode(apiKey, { code, sessionId })
-    if (currentNonce !== openaiOAuthFlowNonce) return
-    openaiOAuthResult.value = result
-
-    const accessToken = String(result?.tokens?.accessToken || '').trim()
-    const refreshToken = String(result?.tokens?.refreshToken || '').trim()
-    const accountId = String(result?.accountInfo?.accountId || '').trim()
-    const oauthEmail = String(result?.accountInfo?.email || '').trim()
-
-    if (accessToken) {
-      formData.value.token = accessToken
-    }
-    if (refreshToken) {
-      formData.value.refreshToken = refreshToken
-    } else {
-      showWarningToast('未返回 refresh token（可能未授予 offline_access），请确认授权 scope')
-    }
-    if (accountId) {
-      const existingAccountId = String(formData.value.chatgptAccountId || '').trim()
-      if (!existingAccountId) {
-        formData.value.chatgptAccountId = accountId
-      } else if (existingAccountId !== accountId) {
-        showWarningToast(`授权返回的 ChatGPT ID 为 ${accountId}，与表单不一致，请确认是否填错`)
-      }
-    }
-    if (oauthEmail) {
-      if (!String(formData.value.email || '').trim()) {
-        formData.value.email = oauthEmail
-      } else if (String(formData.value.email || '').trim().toLowerCase() !== oauthEmail.toLowerCase()) {
-        showWarningToast(`授权账号邮箱为 ${oauthEmail}，与表单邮箱不一致，请确认是否填错`)
-      }
-    }
-
-    // OAuth 交换接口不会返回 Team 订阅到期时间；这里用 access token 额外拉一次账号信息，
-    // 尝试自动填充过期时间（entitlement.expires_at）。
-    if (accessToken) {
-      const alreadyChecking = checkingAccessToken.value
-      if (!alreadyChecking) {
-        checkingAccessToken.value = true
-      }
-      try {
-        const checked = await gptAccountService.checkAccessToken(accessToken)
-        if (currentNonce !== openaiOAuthFlowNonce) return
-
-        checkedChatgptAccounts.value = Array.isArray(checked?.accounts) ? checked.accounts : []
-        checkAccessTokenError.value = ''
-
-        const preferredId = String(formData.value.chatgptAccountId || accountId || '').trim()
-        if (preferredId) {
-          applyCheckedAccountSelection(preferredId)
-        }
-      } catch (err: any) {
-        if (currentNonce !== openaiOAuthFlowNonce) return
-        logHttpErrorWithBody('[Accounts] 校验 token 失败（OAuth 自动检查）', err)
-        // 不阻塞主流程，失败时允许用户手动填写
-        const message = resolveRequestError(err, '获取账号到期时间失败')
-        checkAccessTokenError.value = message
-      } finally {
-        if (!alreadyChecking && currentNonce === openaiOAuthFlowNonce) {
-          checkingAccessToken.value = false
-        }
-      }
-    }
-
-    showSuccessToast('已获取并填入 token 信息')
-  } catch (err: any) {
-    if (currentNonce !== openaiOAuthFlowNonce) return
-    openaiOAuthError.value = resolveRequestError(err, '交换授权码失败')
-    showErrorToast(openaiOAuthError.value)
-  } finally {
-    if (currentNonce === openaiOAuthFlowNonce) {
-      exchangingOpenaiCode.value = false
-    }
   }
 }
 
@@ -950,6 +728,7 @@ const openEditDialog = (account: GptAccount) => {
 	    isBanned: Boolean(account.isBanned),
 	    chatgptAccountId: account.chatgptAccountId || '',
 	    oaiDeviceId: account.oaiDeviceId || '',
+	    idNumber: account.idNumber || '',
 	    expireAt: toDatetimeLocal(account.expireAt || '')
 	  }
   showDialog.value = true
@@ -958,11 +737,10 @@ const openEditDialog = (account: GptAccount) => {
 	const closeDialog = () => {
 	  showDialog.value = false
 	  editingAccount.value = null
-	  formData.value = { email: '', token: '', refreshToken: '', userCount: 0, isBanned: false, chatgptAccountId: '', oaiDeviceId: '', expireAt: '' }
+	  formData.value = { email: '', token: '', refreshToken: '', userCount: 0, isBanned: false, chatgptAccountId: '', oaiDeviceId: '', idNumber: '', expireAt: '' }
 	  checkedChatgptAccounts.value = []
 	  checkAccessTokenError.value = ''
 	  checkingAccessToken.value = false
-	  resetOpenaiOAuthFlow()
 	}
 
 const handleSubmit = async () => {
@@ -974,6 +752,7 @@ const handleSubmit = async () => {
       refreshToken: formData.value.refreshToken?.trim() || '',
       chatgptAccountId: formData.value.chatgptAccountId?.trim() || '',
       oaiDeviceId: formData.value.oaiDeviceId?.trim() || '',
+      idNumber: formData.value.idNumber?.trim() || '',
       expireAt: fromDatetimeLocal(formData.value.expireAt?.trim() || ''),
     }
 
@@ -1067,15 +846,9 @@ const applySyncResultToState = (result: SyncUserCountResponse) => {
   if (index !== -1) {
     const current = accounts.value[index]
     if (!current) return
-    const nextInviteCount = typeof result.inviteCount === 'number'
-      ? result.inviteCount
-      : typeof result.account.inviteCount === 'number'
-        ? result.account.inviteCount
-        : current.inviteCount
     accounts.value[index] = {
       ...current,
       userCount: result.syncedUserCount,
-      inviteCount: typeof nextInviteCount === 'number' ? nextInviteCount : current.inviteCount,
       updatedAt: result.account.updatedAt
     }
     accounts.value = [...accounts.value]
@@ -1110,13 +883,10 @@ const scheduleResyncAfterAction = (accountId: number) => {
       if (syncResult.value?.account?.id !== accountId) return
 
       previousUserCount.value = syncResult.value?.syncedUserCount ?? previousUserCount.value
-      previousInviteCount.value = syncResult.value?.inviteCount ?? previousInviteCount.value
 
       const latestResult = await gptAccountService.syncUserCount(accountId)
       if (version !== resyncAfterActionVersion) return
       applySyncResultToState(latestResult)
-
-      await loadInvites(accountId)
     } catch (err: any) {
       if (version !== resyncAfterActionVersion) return
       const message = err.response?.data?.error || '重新同步失败，请稍后再试'
@@ -1135,10 +905,7 @@ const handleSyncUserCount = async (account: GptAccount) => {
   syncingAccountId.value = account.id
   syncError.value = ''
   syncResult.value = null
-  invitesList.value = []
-  activeTab.value = 'members'
   previousUserCount.value = account.userCount
-  previousInviteCount.value = typeof account.inviteCount === 'number' ? account.inviteCount : null
 
   try {
     const result = await gptAccountService.syncUserCount(account.id)
@@ -1146,33 +913,12 @@ const handleSyncUserCount = async (account: GptAccount) => {
 
     // 显示同步结果对话框
     showSyncResultDialog.value = true
-    
-    // 加载待加入列表
-    loadInvites(account.id)
   } catch (err: any) {
     syncError.value = err.response?.data?.error || '同步失败，请检查网络连接和账号配置'
     showSyncResultDialog.value = true
   } finally {
     syncingAccountId.value = null
   }
-}
-
-const loadInvites = async (accountId: number) => {
-  loadingInvites.value = true
-  try {
-    const response = await gptAccountService.getInvites(accountId)
-    invitesList.value = response.items || []
-  } catch (err) {
-    console.error('Failed to load invites:', err)
-  } finally {
-    loadingInvites.value = false
-  }
-}
-
-const resetInviteForm = () => {
-  inviteEmail.value = ''
-  showInviteForm.value = false
-  inviting.value = false
 }
 
 // 关闭同步结果对话框
@@ -1182,10 +928,6 @@ const closeSyncResultDialog = () => {
   syncResult.value = null
   syncError.value = ''
   previousUserCount.value = null
-  previousInviteCount.value = null
-  invitesList.value = []
-  activeTab.value = 'members'
-  resetInviteForm()
 }
 
 const handleDeleteSyncedUser = async (userId?: string) => {
@@ -1212,92 +954,6 @@ const handleDeleteSyncedUser = async (userId?: string) => {
   }
 }
 
-const handleRevokeInvite = async (emailAddress?: string) => {
-  if (!syncResult.value?.account?.id) {
-    showErrorToast('请先同步账号后再撤回邀请')
-    return
-  }
-
-  const email = String(emailAddress || '').trim()
-  if (!email) {
-    showErrorToast('缺少邀请邮箱')
-    return
-  }
-  const normalizedEmail = email.toLowerCase()
-
-  if (!confirm(`确定要撤回对 ${email} 的邀请吗？`)) {
-    return
-  }
-
-  revokingInviteEmail.value = normalizedEmail
-  const currentInviteCount = syncResult.value.inviteCount ?? 0
-
-  try {
-    const result = await gptAccountService.deleteAccountInvite(syncResult.value.account.id, normalizedEmail)
-    showSuccessToast(result.message || '邀请已撤回')
-
-    previousInviteCount.value = currentInviteCount
-    syncResult.value.account = result.account
-    syncResult.value.inviteCount = result.inviteCount
-
-    const index = accounts.value.findIndex(a => a.id === result.account.id)
-    if (index !== -1) {
-      const current = accounts.value[index]
-      if (current) {
-        accounts.value[index] = {
-          ...current,
-          inviteCount: result.inviteCount,
-          updatedAt: result.account.updatedAt
-        }
-        accounts.value = [...accounts.value]
-      }
-    }
-
-    invitesList.value = invitesList.value.filter(invite => {
-      const inviteEmail = String(invite.email_address || '').trim().toLowerCase()
-      return inviteEmail !== normalizedEmail
-    })
-    scheduleResyncAfterAction(syncResult.value.account.id)
-  } catch (err: any) {
-    showErrorToast(err.response?.data?.error || '撤回邀请失败')
-  } finally {
-    revokingInviteEmail.value = null
-  }
-}
-
-const handleInviteSubmit = async () => {
-  if (!syncResult.value || !syncResult.value.account) {
-    showErrorToast('请先同步账号后再邀请成员')
-    return
-  }
-
-  const email = inviteEmail.value.trim()
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-  if (!email) {
-    showErrorToast('请输入邮箱地址')
-    return
-  }
-
-  if (!emailRegex.test(email)) {
-    showErrorToast('邮箱格式不正确')
-    return
-  }
-
-  inviting.value = true
-  try {
-    const result = await gptAccountService.inviteAccountUser(syncResult.value.account.id, email)
-    showSuccessToast(result.message || '邀请已发送')
-    resetInviteForm()
-    // 切换到邀请列表 Tab
-    activeTab.value = 'invites'
-    scheduleResyncAfterAction(syncResult.value.account.id)
-  } catch (err: any) {
-    showErrorToast(err.response?.data?.error || '邀请失败')
-  } finally {
-    inviting.value = false
-  }
-}
 </script>
 
 <template>
@@ -1396,6 +1052,7 @@ const handleInviteSubmit = async () => {
 	              <tr class="border-b border-gray-100 bg-gray-50/50">
 	                <th class="px-6 py-5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">ID</th>
 	                <th class="px-6 py-5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">邮箱</th>
+	                <th class="px-6 py-5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">证件号</th>
 	                <th class="px-6 py-5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">状态</th>
 	                <th class="px-6 py-5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">已加入</th>
 	                <th class="px-6 py-5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">待加入</th>
@@ -1428,6 +1085,7 @@ const handleInviteSubmit = async () => {
                       </div>
 	                  </div>
 	                </td>
+	                <td class="px-6 py-5 text-sm text-gray-600 font-mono">{{ account.idNumber || '-' }}</td>
 	                <td class="px-6 py-5 text-center">
 	                  <span
 	                    class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border"
@@ -1533,6 +1191,7 @@ const handleInviteSubmit = async () => {
                     <p class="text-sm font-bold break-all" :class="account.isBanned ? 'text-red-600' : 'text-gray-900'">{{ account.email }}</p>
                     <div class="mt-1 flex flex-wrap items-center gap-2">
                       <p class="text-xs text-blue-500 font-medium">#{{ account.id }}</p>
+                      <p v-if="account.idNumber" class="text-xs text-gray-500 font-mono">{{ account.idNumber }}</p>
                     </div>
                  </div>
               </div>
@@ -1666,6 +1325,17 @@ const handleInviteSubmit = async () => {
               </div>
 
               <div class="space-y-2">
+                <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">证件号</Label>
+                <Input
+                  v-model="formData.idNumber"
+                  type="text"
+                  placeholder="可选"
+                  class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
+                />
+                <p class="text-[12px] text-gray-400">身份证号或其它证件号</p>
+              </div>
+
+              <div class="space-y-2">
                 <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Access Token</Label>
                 <div class="flex items-center gap-2">
                   <Input
@@ -1703,124 +1373,6 @@ const handleInviteSubmit = async () => {
                     placeholder="可选，用于自动刷新"
                     class="h-11 flex-1 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
                   />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    class="h-11 rounded-xl border-gray-200"
-                    :disabled="generatingOpenaiAuthUrl"
-                    @click="handleClickGetRefreshToken"
-                  >
-                    <template v-if="generatingOpenaiAuthUrl">
-                      <span class="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full mr-2"></span>
-                      生成中
-                    </template>
-                    <template v-else>
-                      获取
-                    </template>
-                  </Button>
-                </div>
-
-                <div
-                  v-if="showOpenaiOAuthPanel"
-                  class="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 space-y-4"
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="space-y-1">
-                      <p class="text-sm font-semibold text-gray-800">通过 OpenAI OAuth 获取 Refresh Token</p>
-                      <p class="text-[12px] text-gray-500">会话有效期约 10 分钟；支持粘贴回调 URL 或直接粘贴 code。</p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      class="h-8 w-8 text-gray-400 hover:text-gray-700"
-                      :disabled="generatingOpenaiAuthUrl || exchangingOpenaiCode"
-                      @click="resetOpenaiOAuthFlow"
-                      title="关闭"
-                    >
-                      <X class="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div v-if="openaiOAuthSession?.authUrl" class="space-y-2">
-                    <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">授权链接</Label>
-                    <div class="flex items-center gap-2">
-                      <Input
-                        :model-value="openaiOAuthSession?.authUrl || ''"
-                        readonly
-                        class="h-11 flex-1 bg-white border-gray-200 rounded-xl font-mono text-xs"
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        class="h-11 rounded-xl border-gray-200"
-                        @click="copyText(openaiOAuthSession?.authUrl || '', '已复制授权链接')"
-                      >
-                        复制
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        class="h-11 rounded-xl border-gray-200"
-                        @click="handleOpenAuthUrl"
-                      >
-                        打开
-                      </Button>
-                    </div>
-
-                    <div v-if="openaiOAuthSession?.instructions?.length" class="space-y-1 text-[12px] text-gray-500">
-                      <p v-for="(item, idx) in openaiOAuthSession.instructions" :key="idx">{{ item }}</p>
-                    </div>
-                  </div>
-
-                  <div class="space-y-2">
-                    <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">回调 URL / 授权码</Label>
-                    <Input
-                      v-model="openaiOAuthInput"
-                      placeholder="粘贴回调 URL（含 code=）或直接粘贴 code"
-                      class="h-11 bg-white border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                    />
-                  </div>
-
-                  <div class="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      class="h-11 rounded-xl"
-                      :disabled="exchangingOpenaiCode || !openaiOAuthInput.trim() || !openaiOAuthSession?.sessionId"
-                      @click="handleExchangeOpenaiCode"
-                    >
-                      <template v-if="exchangingOpenaiCode">
-                        <span class="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full mr-2"></span>
-                        转换中
-                      </template>
-                      <template v-else>
-                        转换并填入
-                      </template>
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      class="h-11 rounded-xl border-gray-200"
-                      :disabled="generatingOpenaiAuthUrl || exchangingOpenaiCode"
-                      @click="generateOpenaiAuthUrl"
-                    >
-                      重新获取链接
-                    </Button>
-                  </div>
-
-                  <p v-if="openaiOAuthError" class="text-[12px] text-red-600">{{ openaiOAuthError }}</p>
-
-                  <div
-                    v-if="openaiOAuthResult"
-                    class="rounded-xl bg-white/80 border border-gray-100 p-3 text-[12px] text-gray-600 space-y-1"
-                  >
-                    <p>已解析账号：{{ openaiOAuthResult?.accountInfo?.email || '-' }}</p>
-                    <p>ChatGPT ID：{{ openaiOAuthResult?.accountInfo?.accountId || '-' }}</p>
-                  </div>
                 </div>
               </div>
 
@@ -2147,10 +1699,7 @@ const handleInviteSubmit = async () => {
                  <div class="text-right">
                     <p class="text-xs font-medium text-green-600/60 uppercase tracking-wider mb-1">待加入人数</p>
                     <div class="flex items-baseline gap-1 justify-end">
-                       <span v-if="previousInviteCount !== null && previousInviteCount !== (syncResult.inviteCount ?? 0)" class="text-xl font-semibold text-green-600/40 mr-1">
-                          {{ previousInviteCount }} <span class="text-sm mx-0.5">→</span>
-                       </span>
-                       <span class="text-3xl font-bold text-green-600">{{ syncResult.inviteCount ?? 0 }}</span>
+                       <span class="text-3xl font-bold text-green-600">0</span>
                        <span class="text-sm text-green-600 font-medium">待</span>
                     </div>
                  </div>
@@ -2161,42 +1710,8 @@ const handleInviteSubmit = async () => {
            <div class="flex-1 overflow-y-auto p-8">
 
               <div class="space-y-4">
-                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <!-- Tabs -->
-                    <div class="flex items-center gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-                       <button
-                          @click="activeTab = 'members'"
-                          class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
-                          :class="activeTab === 'members' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-                 >
-                          成员列表
-                       </button>
-                       <button
-                          @click="activeTab = 'invites'"
-                          class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all"
-                          :class="activeTab === 'invites' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'"
-                       >
-                          待加入列表
-                       </button>
-                    </div>
-
-                    <Button size="sm" variant="outline" class="rounded-lg text-xs h-8 border-gray-200" @click="showInviteForm = !showInviteForm">
-                       {{ showInviteForm ? '取消' : '邀请新成员' }}
-                    </Button>
-                 </div>
-
-                 <!-- Invite Form -->
-                 <div v-if="showInviteForm" class="p-4 bg-blue-50/50 rounded-xl border border-blue-100 animate-in fade-in slide-in-from-top-2">
-                    <div class="flex gap-2">
-                       <Input v-model="inviteEmail" placeholder="输入邮箱地址..." class="bg-white h-10 border-blue-200 focus:border-blue-400" />
-                       <Button @click="handleInviteSubmit" :disabled="inviting" class="bg-blue-600 hover:bg-blue-700 text-white h-10 px-4 whitespace-nowrap">
-                          发送邀请
-                       </Button>
-                    </div>
-                 </div>
-
                  <!-- Members Table -->
-                 <div v-show="activeTab === 'members'" class="border border-gray-100 rounded-xl overflow-hidden">
+                 <div class="border border-gray-100 rounded-xl overflow-hidden">
                     <table class="w-full text-sm">
                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
                           <tr>
@@ -2229,52 +1744,6 @@ const handleInviteSubmit = async () => {
                           </tr>
                           <tr v-if="!syncResult.users?.items?.length">
                              <td colspan="3" class="px-4 py-8 text-center text-gray-400">暂无成员数据</td>
-                          </tr>
-                       </tbody>
-                    </table>
-                 </div>
-
-                 <!-- Invites Table -->
-                 <div v-show="activeTab === 'invites'" class="border border-gray-100 rounded-xl overflow-hidden">
-                     <div v-if="loadingInvites" class="p-8 flex justify-center">
-                        <div class="w-6 h-6 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
-                     </div>
-                     <table v-else class="w-full text-sm">
-                       <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
-                          <tr>
-                             <th class="px-4 py-3 text-left font-medium">受邀邮箱</th>
-                             <th class="px-4 py-3 text-left font-medium">角色</th>
-                             <th class="px-4 py-3 text-left font-medium">邀请时间</th>
-                             <th class="px-4 py-3 text-right font-medium">操作</th>
-                          </tr>
-                       </thead>
-                       <tbody class="divide-y divide-gray-50">
-                          <tr v-for="invite in invitesList" :key="invite.id" class="group hover:bg-gray-50/50">
-                             <td class="px-4 py-3">
-                                <div class="font-medium text-gray-900">{{ invite.email_address }}</div>
-                             </td>
-                             <td class="px-4 py-3 text-gray-500">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 capitalize">
-                                   {{ invite.role }}
-                                </span>
-                             </td>
-                             <td class="px-4 py-3 text-gray-500 text-xs">
-                                {{ formatShanghaiDate(invite.created_time || '', dateFormatOptions) }}
-                             </td>
-                             <td class="px-4 py-3 text-right">
-                                <button
-                                  class="text-gray-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50 disabled:opacity-50 disabled:hover:bg-transparent"
-                                  @click="handleRevokeInvite(invite.email_address)"
-                                  :disabled="!invite.email_address || revokingInviteEmail === String(invite.email_address).trim().toLowerCase()"
-                                  title="撤回邀请"
-                                >
-                                  <span v-if="revokingInviteEmail === String(invite.email_address).trim().toLowerCase()" class="animate-spin">⏳</span>
-                                  <Trash2 v-else class="w-4 h-4" />
-                                </button>
-                             </td>
-                          </tr>
-                          <tr v-if="!invitesList.length">
-                             <td colspan="4" class="px-4 py-8 text-center text-gray-400">暂无待加入邀请</td>
                           </tr>
                        </tbody>
                     </table>

@@ -3,42 +3,17 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { authService, userService } from '@/services/api'
 import { Button } from '@/components/ui/button'
-import { filterAdminMenuTreeByFeatureFlags, getFallbackAdminMenuTree, normalizeAdminMenuTree, type AdminMenuNode } from '@/lib/adminMenus'
+import { getFallbackAdminMenuTree, normalizeAdminMenuTree, type AdminMenuNode } from '@/lib/adminMenus'
 import { Menu, X, LogOut, ChevronRight, Github } from 'lucide-vue-next'
 import { useBreakpoints } from '@vueuse/core'
-import { useAppConfigStore } from '@/stores/appConfig'
-import { useAnnouncementsStore } from '@/stores/announcements'
-import AnnouncementBell from '@/components/AnnouncementBell.vue'
 
 const router = useRouter()
 const route = useRoute()
-const appConfigStore = useAppConfigStore()
-const announcementsStore = useAnnouncementsStore()
-
 const currentUser = ref(authService.getCurrentUser())
 const githubRepoUrl = 'https://github.com/Kylsky/chatgpt-team-helper'
 
-let unreadPollTimer: number | null = null
-
-const stopUnreadPolling = () => {
-  if (unreadPollTimer === null) return
-  clearInterval(unreadPollTimer)
-  unreadPollTimer = null
-}
-
-const startUnreadPolling = () => {
-  stopUnreadPolling()
-  unreadPollTimer = window.setInterval(() => {
-    announcementsStore.refreshUnreadCount()
-  }, 60_000)
-}
-
 const syncCurrentUser = () => {
   currentUser.value = authService.getCurrentUser()
-  if (!authService.isAuthenticated()) {
-    announcementsStore.reset()
-    stopUnreadPolling()
-  }
 }
 
 onMounted(() => {
@@ -47,12 +22,8 @@ onMounted(() => {
     try {
       const me = await userService.getMe()
       authService.setCurrentUser(me)
-      await announcementsStore.refreshUnreadCount()
-      startUnreadPolling()
     } catch (error: any) {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
-        announcementsStore.reset()
-        stopUnreadPolling()
         authService.logout()
         router.push('/login')
       }
@@ -61,15 +32,13 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  stopUnreadPolling()
   window.removeEventListener('auth-updated', syncCurrentUser)
 })
 
 const menuTree = computed<AdminMenuNode[]>(() => {
   const user: any = currentUser.value
   const tree = normalizeAdminMenuTree(user?.adminMenus)
-  const resolved = tree.length ? tree : getFallbackAdminMenuTree(user?.menus, user?.roles)
-  return filterAdminMenuTreeByFeatureFlags(resolved, appConfigStore.features)
+  return tree.length ? tree : getFallbackAdminMenuTree(user?.menus, user?.roles)
 })
 
 const findLabelByPath = (nodes: AdminMenuNode[], path: string): string | null => {
@@ -108,8 +77,6 @@ const handleMenuClick = () => {
 }
 
 const handleLogout = () => {
-  announcementsStore.reset()
-  stopUnreadPolling()
   authService.logout()
   router.push('/login')
 }
@@ -361,7 +328,6 @@ const isGroupExpanded = (key: string) => {
             </p>
             <p class="text-xs text-gray-500 truncate">{{ roleLabel }}</p>
           </div>
-          <AnnouncementBell />
         </div>
         <Button
           variant="ghost"

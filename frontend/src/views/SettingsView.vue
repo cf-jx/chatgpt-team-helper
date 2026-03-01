@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
-import { authService, userService, adminService, versionService, purchaseService } from '@/services/api'
-import type { VersionInfo, LatestVersionInfo, Channel, PurchaseProduct, PurchaseMeta, PurchaseOrderType } from '@/services/api'
-import { useAppConfigStore } from '@/stores/appConfig'
+import { authService, userService, adminService, versionService } from '@/services/api'
+import type { VersionInfo, LatestVersionInfo } from '@/services/api'
 import {
   Card,
   CardContent,
@@ -14,25 +13,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import AnnouncementAdminPanel from '@/components/AnnouncementAdminPanel.vue'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Eye, EyeOff, Sparkles, KeyRound, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-vue-next'
 
 const teleportReady = ref(false)
-const activeTab = ref<'settings' | 'announcements'>('settings')
 
 // 版本检查相关
 const versionLoading = ref(false)
@@ -78,71 +74,12 @@ const apiKey = ref('')
 const apiKeyError = ref('')
 const apiKeySuccess = ref('')
 const apiKeyLoading = ref(false)
-const showApiKey = ref(false) // 控制显示/隐藏API密钥
+const showApiKey = ref(false)
 
 const isSuperAdmin = computed(() => {
   const user = authService.getCurrentUser()
   return Array.isArray(user?.roles) && user.roles.includes('super_admin')
 })
-
-const appConfigStore = useAppConfigStore()
-
-// 功能开关（仅超级管理员）
-const featureFlags = ref({
-  xhs: false,
-  xianyu: false,
-  payment: true,
-  openAccounts: true
-})
-const featureFlagsError = ref('')
-const featureFlagsSuccess = ref('')
-const featureFlagsLoading = ref(false)
-
-// 渠道管理（仅超级管理员）
-const channels = ref<Channel[]>([])
-const channelsLoading = ref(false)
-const channelsError = ref('')
-const channelsSuccess = ref('')
-const channelDialogOpen = ref(false)
-const channelDialogMode = ref<'create' | 'edit'>('create')
-const channelFormKey = ref('')
-const channelFormName = ref('')
-const channelFormAllowFallback = ref(false)
-const channelFormIsActive = ref(true)
-const channelFormSortOrder = ref('0')
-
-// 支付商品管理（仅超级管理员）
-const purchaseProducts = ref<PurchaseProduct[]>([])
-const purchaseProductsLoading = ref(false)
-const purchaseProductsError = ref('')
-const purchaseProductsSuccess = ref('')
-const purchaseProductDialogOpen = ref(false)
-const purchaseProductDialogMode = ref<'create' | 'edit'>('create')
-const purchaseProductFormKey = ref('')
-const purchaseProductFormName = ref('')
-const purchaseProductFormAmount = ref('')
-const purchaseProductFormServiceDays = ref('30')
-const purchaseProductFormOrderType = ref<PurchaseOrderType>('warranty')
-const purchaseProductFormCodeChannels = ref('')
-const purchaseProductFormIsActive = ref(true)
-const purchaseProductFormSortOrder = ref('0')
-const purchaseAvailability = ref<Record<string, number>>({})
-
-// 邮箱后缀白名单
-const emailDomainWhitelist = ref('')
-const emailDomainWhitelistError = ref('')
-const emailDomainWhitelistSuccess = ref('')
-const emailDomainWhitelistLoading = ref(false)
-
-// 积分提现设置（仅超级管理员）
-const pointsWithdrawRatePoints = ref('1')
-const pointsWithdrawRateCashYuan = ref('1.00')
-const pointsWithdrawMinCashYuan = ref('10.00')
-const pointsWithdrawMinPoints = ref<number | null>(null)
-const pointsWithdrawStepPoints = ref<number | null>(null)
-const pointsWithdrawError = ref('')
-const pointsWithdrawSuccess = ref('')
-const pointsWithdrawLoading = ref(false)
 
 // SMTP 邮件告警配置（仅超级管理员）
 const smtpHost = ref('')
@@ -158,38 +95,6 @@ const smtpError = ref('')
 const smtpSuccess = ref('')
 const smtpLoading = ref(false)
 const showSmtpPass = ref(false)
-
-// Linux DO OAuth 配置（仅超级管理员）
-const linuxdoClientId = ref('')
-const linuxdoClientSecret = ref('')
-const linuxdoRedirectUri = ref('')
-const linuxdoClientSecretSet = ref(false)
-const linuxdoClientSecretStored = ref(false)
-const linuxdoOauthError = ref('')
-const linuxdoOauthSuccess = ref('')
-const linuxdoOauthLoading = ref(false)
-const showLinuxdoClientSecret = ref(false)
-
-// Linux DO Credit 配置（仅超级管理员）
-const linuxdoCreditPid = ref('')
-const linuxdoCreditKey = ref('')
-const linuxdoCreditKeySet = ref(false)
-const linuxdoCreditKeyStored = ref(false)
-const linuxdoCreditError = ref('')
-const linuxdoCreditSuccess = ref('')
-const linuxdoCreditLoading = ref(false)
-const showLinuxdoCreditKey = ref(false)
-
-// ZPAY 支付配置（仅超级管理员）
-const zpayBaseUrl = ref('https://zpayz.cn')
-const zpayPid = ref('')
-const zpayKey = ref('')
-const zpayKeySet = ref(false)
-const zpayKeyStored = ref(false)
-const zpayError = ref('')
-const zpaySuccess = ref('')
-const zpayLoading = ref(false)
-const showZpayKey = ref(false)
 
 // Cloudflare Turnstile 配置（仅超级管理员）
 const turnstileSiteKey = ref('')
@@ -210,16 +115,7 @@ onMounted(async () => {
   if (!isSuperAdmin.value) return
   await loadApiKey()
   await Promise.all([
-    loadFeatureFlags(),
-    loadChannels(),
-    loadPurchaseProducts(),
-    loadPurchaseAvailability(),
-    loadEmailDomainWhitelist(),
-    loadPointsWithdrawSettings(),
     loadSmtpSettings(),
-    loadLinuxDoOAuthSettings(),
-    loadLinuxDoCreditSettings(),
-    loadZpaySettings(),
     loadTurnstileSettings(),
   ])
 })
@@ -237,251 +133,10 @@ const loadApiKey = async () => {
   }
 }
 
-const loadFeatureFlags = async () => {
-  featureFlagsError.value = ''
-  featureFlagsSuccess.value = ''
-  try {
-    const response = await adminService.getFeatureFlags()
-    const next = response.features || {}
-    featureFlags.value = {
-      xhs: false,
-      xianyu: false,
-      payment: next.payment !== false,
-      openAccounts: next.openAccounts !== false
-    }
-    appConfigStore.features = { ...featureFlags.value }
-  } catch (err: any) {
-    featureFlagsError.value = err.response?.data?.error || '加载功能开关失败'
-  }
-}
-
-const saveFeatureFlags = async () => {
-  featureFlagsError.value = ''
-  featureFlagsSuccess.value = ''
-  featureFlagsLoading.value = true
-  try {
-    const payload = {
-      xhs: false,
-      xianyu: false,
-      payment: featureFlags.value.payment,
-      openAccounts: featureFlags.value.openAccounts
-    }
-    const response = await adminService.updateFeatureFlags({
-      features: payload
-    })
-    const next = response.features || {}
-    featureFlags.value = {
-      xhs: false,
-      xianyu: false,
-      payment: next.payment !== false,
-      openAccounts: next.openAccounts !== false
-    }
-    appConfigStore.features = { ...featureFlags.value }
-    featureFlagsSuccess.value = '已保存'
-    setTimeout(() => (featureFlagsSuccess.value = ''), 3000)
-  } catch (err: any) {
-    featureFlagsError.value = err.response?.data?.error || '保存失败'
-  } finally {
-    featureFlagsLoading.value = false
-  }
-}
-
-const loadChannels = async () => {
-  if (channelsLoading.value) return
-  channelsLoading.value = true
-  channelsError.value = ''
-  channelsSuccess.value = ''
-  try {
-    const response = await adminService.getChannels()
-    channels.value = Array.isArray(response.channels) ? response.channels : []
-  } catch (err: any) {
-    channelsError.value = err.response?.data?.error || '加载渠道失败'
-  } finally {
-    channelsLoading.value = false
-  }
-}
-
-const openCreateChannelDialog = () => {
-  channelDialogMode.value = 'create'
-  channelFormKey.value = ''
-  channelFormName.value = ''
-  channelFormAllowFallback.value = false
-  channelFormIsActive.value = true
-  channelFormSortOrder.value = '0'
-  channelDialogOpen.value = true
-}
-
-const openEditChannelDialog = (channel: Channel) => {
-  channelDialogMode.value = 'edit'
-  channelFormKey.value = channel.key
-  channelFormName.value = channel.name
-  channelFormAllowFallback.value = Boolean(channel.allowCommonFallback)
-  channelFormIsActive.value = Boolean(channel.isActive)
-  channelFormSortOrder.value = String(channel.sortOrder ?? 0)
-  channelDialogOpen.value = true
-}
-
-const submitChannelDialog = async () => {
-  channelsError.value = ''
-  channelsSuccess.value = ''
-  try {
-    if (channelDialogMode.value === 'create') {
-      await adminService.createChannel({
-        key: channelFormKey.value.trim(),
-        name: channelFormName.value.trim(),
-        allowCommonFallback: channelFormAllowFallback.value,
-        isActive: channelFormIsActive.value,
-        sortOrder: Number.parseInt(channelFormSortOrder.value || '0', 10) || 0
-      })
-    } else {
-      await adminService.updateChannel(channelFormKey.value, {
-        name: channelFormName.value.trim(),
-        allowCommonFallback: channelFormAllowFallback.value,
-        isActive: channelFormIsActive.value,
-        sortOrder: Number.parseInt(channelFormSortOrder.value || '0', 10) || 0
-      })
-    }
-    channelDialogOpen.value = false
-    channelsSuccess.value = '已保存'
-    setTimeout(() => (channelsSuccess.value = ''), 3000)
-    await loadChannels()
-  } catch (err: any) {
-    channelsError.value = err.response?.data?.error || '保存失败'
-  }
-}
-
-const toggleChannelActive = async (channel: Channel) => {
-  channelsError.value = ''
-  channelsSuccess.value = ''
-  try {
-    await adminService.updateChannel(channel.key, { isActive: !channel.isActive })
-    await loadChannels()
-    channelsSuccess.value = '已保存'
-    setTimeout(() => (channelsSuccess.value = ''), 3000)
-  } catch (err: any) {
-    channelsError.value = err.response?.data?.error || '更新失败'
-  }
-}
-
-const loadPurchaseProducts = async () => {
-  if (purchaseProductsLoading.value) return
-  purchaseProductsLoading.value = true
-  purchaseProductsError.value = ''
-  purchaseProductsSuccess.value = ''
-  try {
-    const response = await adminService.getPurchaseProducts()
-    purchaseProducts.value = Array.isArray(response.products) ? response.products : []
-  } catch (err: any) {
-    purchaseProductsError.value = err.response?.data?.error || '加载商品失败'
-  } finally {
-    purchaseProductsLoading.value = false
-  }
-}
-
-const loadPurchaseAvailability = async () => {
-  try {
-    const meta: PurchaseMeta = await purchaseService.getMeta()
-    const map: Record<string, number> = {}
-    for (const plan of meta.plans || []) {
-      map[plan.key] = Number(plan.availableCount || 0)
-    }
-    purchaseAvailability.value = map
-  } catch {
-    purchaseAvailability.value = {}
-  }
-}
-
-const refreshPurchaseProducts = async () => {
-  await Promise.all([loadPurchaseProducts(), loadPurchaseAvailability()])
-}
-
-const openCreatePurchaseProductDialog = () => {
-  purchaseProductDialogMode.value = 'create'
-  purchaseProductFormKey.value = ''
-  purchaseProductFormName.value = ''
-  purchaseProductFormAmount.value = ''
-  purchaseProductFormServiceDays.value = '30'
-  purchaseProductFormOrderType.value = 'warranty'
-  purchaseProductFormCodeChannels.value = 'paypal,common'
-  purchaseProductFormIsActive.value = true
-  purchaseProductFormSortOrder.value = '0'
-  purchaseProductDialogOpen.value = true
-}
-
-const openEditPurchaseProductDialog = (product: PurchaseProduct) => {
-  purchaseProductDialogMode.value = 'edit'
-  purchaseProductFormKey.value = product.productKey
-  purchaseProductFormName.value = product.productName
-  purchaseProductFormAmount.value = product.amount
-  purchaseProductFormServiceDays.value = String(product.serviceDays ?? 30)
-  purchaseProductFormOrderType.value = product.orderType
-  purchaseProductFormCodeChannels.value = product.codeChannels
-  purchaseProductFormIsActive.value = Boolean(product.isActive)
-  purchaseProductFormSortOrder.value = String(product.sortOrder ?? 0)
-  purchaseProductDialogOpen.value = true
-}
-
-const submitPurchaseProductDialog = async () => {
-  purchaseProductsError.value = ''
-  purchaseProductsSuccess.value = ''
-
-  const payload = {
-    productKey: purchaseProductFormKey.value.trim(),
-    productName: purchaseProductFormName.value.trim(),
-    amount: purchaseProductFormAmount.value.trim(),
-    serviceDays: Number.parseInt(purchaseProductFormServiceDays.value || '0', 10),
-    orderType: purchaseProductFormOrderType.value,
-    codeChannels: purchaseProductFormCodeChannels.value.trim(),
-    isActive: purchaseProductFormIsActive.value,
-    sortOrder: Number.parseInt(purchaseProductFormSortOrder.value || '0', 10) || 0,
-  }
-
-  try {
-    if (purchaseProductDialogMode.value === 'create') {
-      await adminService.createPurchaseProduct(payload)
-    } else {
-      await adminService.updatePurchaseProduct(payload.productKey, payload)
-    }
-    purchaseProductDialogOpen.value = false
-    purchaseProductsSuccess.value = '已保存'
-    setTimeout(() => (purchaseProductsSuccess.value = ''), 3000)
-    await Promise.all([loadPurchaseProducts(), loadPurchaseAvailability()])
-  } catch (err: any) {
-    purchaseProductsError.value = err.response?.data?.error || '保存失败'
-  }
-}
-
-const togglePurchaseProductActive = async (product: PurchaseProduct) => {
-  purchaseProductsError.value = ''
-  purchaseProductsSuccess.value = ''
-  try {
-    await adminService.updatePurchaseProduct(product.productKey, { isActive: !product.isActive })
-    await Promise.all([loadPurchaseProducts(), loadPurchaseAvailability()])
-    purchaseProductsSuccess.value = '已保存'
-    setTimeout(() => (purchaseProductsSuccess.value = ''), 3000)
-  } catch (err: any) {
-    purchaseProductsError.value = err.response?.data?.error || '更新失败'
-  }
-}
-
-const disablePurchaseProduct = async (product: PurchaseProduct) => {
-  purchaseProductsError.value = ''
-  purchaseProductsSuccess.value = ''
-  try {
-    await adminService.deletePurchaseProduct(product.productKey)
-    await Promise.all([loadPurchaseProducts(), loadPurchaseAvailability()])
-    purchaseProductsSuccess.value = '已下架'
-    setTimeout(() => (purchaseProductsSuccess.value = ''), 3000)
-  } catch (err: any) {
-    purchaseProductsError.value = err.response?.data?.error || '下架失败'
-  }
-}
-
 const handleUpdateApiKey = async () => {
   apiKeyError.value = ''
   apiKeySuccess.value = ''
 
-  // Validation
   if (!apiKey.value) {
     apiKeyError.value = '请输入API密钥'
     return
@@ -498,7 +153,6 @@ const handleUpdateApiKey = async () => {
     await userService.updateApiKey(apiKey.value)
     apiKeySuccess.value = 'API密钥更新成功！请在油猴脚本中使用新密钥'
 
-    // Clear success message after 5 seconds
     setTimeout(() => {
       apiKeySuccess.value = ''
     }, 5000)
@@ -509,7 +163,6 @@ const handleUpdateApiKey = async () => {
   }
 }
 
-// 生成随机API密钥
 const generateApiKey = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
   const length = 32
@@ -518,11 +171,10 @@ const generateApiKey = () => {
     result += chars.charAt(Math.floor(Math.random() * chars.length))
   }
   apiKey.value = result
-  showApiKey.value = true // 生成后自动显示
+  showApiKey.value = true
   apiKeySuccess.value = '✅ 已生成随机密钥，点击"更新 API 密钥"保存'
 }
 
-// 切换显示/隐藏API密钥
 const toggleShowApiKey = () => {
   showApiKey.value = !showApiKey.value
 }
@@ -531,300 +183,15 @@ const toggleShowSmtpPass = () => {
   showSmtpPass.value = !showSmtpPass.value
 }
 
-const toggleShowLinuxdoClientSecret = () => {
-  showLinuxdoClientSecret.value = !showLinuxdoClientSecret.value
-}
-
-const toggleShowLinuxdoCreditKey = () => {
-  showLinuxdoCreditKey.value = !showLinuxdoCreditKey.value
-}
-
-const toggleShowZpayKey = () => {
-  showZpayKey.value = !showZpayKey.value
-}
-
 const toggleShowTurnstileSecretKey = () => {
   showTurnstileSecretKey.value = !showTurnstileSecretKey.value
-}
-
-const loadEmailDomainWhitelist = async () => {
-  emailDomainWhitelistError.value = ''
-  emailDomainWhitelistSuccess.value = ''
-  try {
-    const response = await adminService.getEmailDomainWhitelist()
-    emailDomainWhitelist.value = (response.domains || []).join(',')
-  } catch (err: any) {
-    emailDomainWhitelistError.value = err.response?.data?.error || '加载邮箱白名单失败'
-  }
-}
-
-const saveEmailDomainWhitelist = async () => {
-  emailDomainWhitelistError.value = ''
-  emailDomainWhitelistSuccess.value = ''
-  emailDomainWhitelistLoading.value = true
-  try {
-    const domains = emailDomainWhitelist.value
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean)
-    await adminService.updateEmailDomainWhitelist(domains)
-    emailDomainWhitelistSuccess.value = '已保存'
-    setTimeout(() => (emailDomainWhitelistSuccess.value = ''), 3000)
-  } catch (err: any) {
-    emailDomainWhitelistError.value = err.response?.data?.error || '保存失败'
-  } finally {
-    emailDomainWhitelistLoading.value = false
-  }
-}
-
-const loadLinuxDoOAuthSettings = async () => {
-  linuxdoOauthError.value = ''
-  linuxdoOauthSuccess.value = ''
-  try {
-    const response = await adminService.getLinuxDoOAuthSettings()
-    linuxdoClientId.value = response.oauth?.clientId || ''
-    linuxdoRedirectUri.value = response.oauth?.redirectUri || ''
-    linuxdoClientSecret.value = ''
-    linuxdoClientSecretSet.value = Boolean(response.oauth?.clientSecretSet)
-    linuxdoClientSecretStored.value = Boolean(response.oauth?.clientSecretStored)
-  } catch (err: any) {
-    linuxdoOauthError.value = err.response?.data?.error || '加载 Linux DO OAuth 配置失败'
-  }
-}
-
-const saveLinuxDoOAuthSettings = async () => {
-  linuxdoOauthError.value = ''
-  linuxdoOauthSuccess.value = ''
-
-  const clientId = linuxdoClientId.value.trim()
-  const redirectUri = linuxdoRedirectUri.value.trim()
-  const clientSecretTrimmed = linuxdoClientSecret.value.trim()
-
-  const wantsEnable = Boolean(clientId || redirectUri || clientSecretTrimmed)
-  if (wantsEnable) {
-    if (!clientId) {
-      linuxdoOauthError.value = '请输入 Linux DO Client ID'
-      return
-    }
-    if (!redirectUri) {
-      linuxdoOauthError.value = '请输入 Linux DO Redirect URI'
-      return
-    }
-    if (!clientSecretTrimmed && !linuxdoClientSecretSet.value) {
-      linuxdoOauthError.value = '请输入 Linux DO Client Secret'
-      return
-    }
-
-    try {
-      const parsed = new URL(redirectUri)
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        linuxdoOauthError.value = 'Redirect URI 必须是 http(s)'
-        return
-      }
-    } catch {
-      linuxdoOauthError.value = 'Redirect URI 格式不正确'
-      return
-    }
-  }
-
-  linuxdoOauthLoading.value = true
-  try {
-    const payload: any = {
-      oauth: {
-        clientId,
-        redirectUri,
-      },
-    }
-    if (clientSecretTrimmed) {
-      payload.oauth.clientSecret = clientSecretTrimmed
-    }
-
-    const response = await adminService.updateLinuxDoOAuthSettings(payload)
-    linuxdoClientId.value = response.oauth?.clientId || clientId
-    linuxdoRedirectUri.value = response.oauth?.redirectUri || redirectUri
-    linuxdoClientSecret.value = ''
-    linuxdoClientSecretSet.value = Boolean(response.oauth?.clientSecretSet)
-    linuxdoClientSecretStored.value = Boolean(response.oauth?.clientSecretStored)
-
-    linuxdoOauthSuccess.value = '已保存'
-    setTimeout(() => (linuxdoOauthSuccess.value = ''), 3000)
-  } catch (err: any) {
-    linuxdoOauthError.value = err.response?.data?.error || '保存失败'
-  } finally {
-    linuxdoOauthLoading.value = false
-  }
-}
-
-const loadLinuxDoCreditSettings = async () => {
-  linuxdoCreditError.value = ''
-  linuxdoCreditSuccess.value = ''
-  try {
-    const response = await adminService.getLinuxDoCreditSettings()
-    linuxdoCreditPid.value = response.credit?.pid || ''
-    linuxdoCreditKey.value = ''
-    linuxdoCreditKeySet.value = Boolean(response.credit?.keySet)
-    linuxdoCreditKeyStored.value = Boolean(response.credit?.keyStored)
-  } catch (err: any) {
-    linuxdoCreditError.value = err.response?.data?.error || '加载 Linux DO Credit 配置失败'
-  }
-}
-
-const saveLinuxDoCreditSettings = async () => {
-  linuxdoCreditError.value = ''
-  linuxdoCreditSuccess.value = ''
-
-  const pid = linuxdoCreditPid.value.trim()
-  const keyTrimmed = linuxdoCreditKey.value.trim()
-  const wantsEnable = Boolean(pid || keyTrimmed)
-
-  if (wantsEnable) {
-    if (!pid) {
-      linuxdoCreditError.value = '请输入 Credit PID'
-      return
-    }
-    if (!keyTrimmed && !linuxdoCreditKeySet.value) {
-      linuxdoCreditError.value = '请输入 Credit KEY'
-      return
-    }
-  }
-
-  linuxdoCreditLoading.value = true
-  try {
-    const payload: any = { credit: { pid } }
-    if (keyTrimmed) {
-      payload.credit.key = keyTrimmed
-    }
-    const response = await adminService.updateLinuxDoCreditSettings(payload)
-    linuxdoCreditPid.value = response.credit?.pid || pid
-    linuxdoCreditKey.value = ''
-    linuxdoCreditKeySet.value = Boolean(response.credit?.keySet)
-    linuxdoCreditKeyStored.value = Boolean(response.credit?.keyStored)
-
-    linuxdoCreditSuccess.value = '已保存'
-    setTimeout(() => (linuxdoCreditSuccess.value = ''), 3000)
-  } catch (err: any) {
-    linuxdoCreditError.value = err.response?.data?.error || '保存失败'
-  } finally {
-    linuxdoCreditLoading.value = false
-  }
-}
-
-const loadZpaySettings = async () => {
-  zpayError.value = ''
-  zpaySuccess.value = ''
-  try {
-    const response = await adminService.getZpaySettings()
-    zpayBaseUrl.value = response.zpay?.baseUrl || 'https://zpayz.cn'
-    zpayPid.value = response.zpay?.pid || ''
-    zpayKey.value = ''
-    zpayKeySet.value = Boolean(response.zpay?.keySet)
-    zpayKeyStored.value = Boolean(response.zpay?.keyStored)
-  } catch (err: any) {
-    zpayError.value = err.response?.data?.error || '加载 ZPAY 配置失败'
-  }
-}
-
-const saveZpaySettings = async () => {
-  zpayError.value = ''
-  zpaySuccess.value = ''
-
-  const baseUrl = zpayBaseUrl.value.trim()
-  if (baseUrl) {
-    try {
-      const parsed = new URL(baseUrl)
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        zpayError.value = 'ZPAY Base URL 必须是 http(s)'
-        return
-      }
-    } catch {
-      zpayError.value = 'ZPAY Base URL 格式不正确'
-      return
-    }
-  }
-
-  const pid = zpayPid.value.trim()
-  const keyTrimmed = zpayKey.value.trim()
-  if (pid) {
-    if (!keyTrimmed && !zpayKeySet.value) {
-      zpayError.value = '请输入 ZPAY KEY'
-      return
-    }
-  }
-
-  zpayLoading.value = true
-  try {
-    const payload: any = { zpay: { baseUrl, pid } }
-    if (keyTrimmed) {
-      payload.zpay.key = keyTrimmed
-    }
-    const response = await adminService.updateZpaySettings(payload)
-    zpayBaseUrl.value = response.zpay?.baseUrl || baseUrl || 'https://zpayz.cn'
-    zpayPid.value = response.zpay?.pid || pid
-    zpayKey.value = ''
-    zpayKeySet.value = Boolean(response.zpay?.keySet)
-    zpayKeyStored.value = Boolean(response.zpay?.keyStored)
-
-    zpaySuccess.value = '已保存'
-    setTimeout(() => (zpaySuccess.value = ''), 3000)
-  } catch (err: any) {
-    zpayError.value = err.response?.data?.error || '保存失败'
-  } finally {
-    zpayLoading.value = false
-  }
-}
-
-const loadTurnstileSettings = async () => {
-  turnstileError.value = ''
-  turnstileSuccess.value = ''
-  try {
-    const response = await adminService.getTurnstileSettings()
-    turnstileSiteKey.value = response.turnstile?.siteKey || ''
-    turnstileSecretKey.value = ''
-    turnstileEnabled.value = Boolean(response.enabled)
-    turnstileSecretSet.value = Boolean(response.turnstile?.secretSet)
-    turnstileSecretStored.value = Boolean(response.turnstile?.secretStored)
-    turnstileSiteKeyStored.value = Boolean(response.turnstile?.siteKeyStored)
-  } catch (err: any) {
-    turnstileError.value = err.response?.data?.error || '加载 Turnstile 配置失败'
-  }
-}
-
-const saveTurnstileSettings = async () => {
-  turnstileError.value = ''
-  turnstileSuccess.value = ''
-
-  const siteKey = turnstileSiteKey.value.trim()
-  const secretTrimmed = turnstileSecretKey.value.trim()
-
-  turnstileLoading.value = true
-  try {
-    const payload: any = { turnstile: { siteKey } }
-    if (secretTrimmed) {
-      payload.turnstile.secretKey = secretTrimmed
-    }
-
-    const response = await adminService.updateTurnstileSettings(payload)
-    turnstileSiteKey.value = response.turnstile?.siteKey || siteKey
-    turnstileSecretKey.value = ''
-    turnstileEnabled.value = Boolean(response.enabled)
-    turnstileSecretSet.value = Boolean(response.turnstile?.secretSet)
-    turnstileSecretStored.value = Boolean(response.turnstile?.secretStored)
-    turnstileSiteKeyStored.value = Boolean(response.turnstile?.siteKeyStored)
-
-    turnstileSuccess.value = '已保存'
-    setTimeout(() => (turnstileSuccess.value = ''), 3000)
-  } catch (err: any) {
-    turnstileError.value = err.response?.data?.error || '保存失败'
-  } finally {
-    turnstileLoading.value = false
-  }
 }
 
 const loadSmtpSettings = async () => {
   smtpError.value = ''
   smtpSuccess.value = ''
   try {
-    const response = await adminService.getSmtpSettings()
+    const response = await adminService.getSettings()
     smtpHost.value = response.smtp?.host || ''
     smtpPort.value = String(response.smtp?.port ?? 465)
     smtpSecure.value = response.smtp?.secure ? 'true' : 'false'
@@ -892,102 +259,68 @@ const saveSmtpSettings = async () => {
   }
 }
 
-const parseYuanToCents = (value: string) => {
-  const raw = String(value ?? '').trim()
-  if (!raw) return NaN
-  if (!/^[0-9]+(\.[0-9]{1,2})?$/.test(raw)) return NaN
-
-  const parts = raw.split('.')
-  const yuan = Number.parseInt(parts[0] || '0', 10)
-  const centsText = String(parts[1] || '')
-  const cents = Number.parseInt((centsText + '00').slice(0, 2), 10)
-  return yuan * 100 + cents
-}
-
-const loadPointsWithdrawSettings = async () => {
-  pointsWithdrawError.value = ''
-  pointsWithdrawSuccess.value = ''
+const loadTurnstileSettings = async () => {
+  turnstileError.value = ''
+  turnstileSuccess.value = ''
   try {
-    const response = await adminService.getPointsWithdrawSettings()
-    pointsWithdrawRatePoints.value = String(response.rate?.points ?? 1)
-    pointsWithdrawRateCashYuan.value = ((Number(response.rate?.cashCents ?? 100) || 0) / 100).toFixed(2)
-    pointsWithdrawMinCashYuan.value = ((Number(response.minCashCents ?? 1000) || 0) / 100).toFixed(2)
-    pointsWithdrawMinPoints.value = Number(response.minPoints ?? 0)
-    pointsWithdrawStepPoints.value = Number(response.stepPoints ?? 0)
+    const response = await adminService.getSettings()
+    turnstileSiteKey.value = response.turnstile?.siteKey || ''
+    turnstileSecretKey.value = ''
+    turnstileEnabled.value = Boolean(response.turnstileEnabled)
+    turnstileSecretSet.value = Boolean(response.turnstile?.secretSet)
+    turnstileSecretStored.value = Boolean(response.turnstile?.secretStored)
+    turnstileSiteKeyStored.value = Boolean(response.turnstile?.siteKeyStored)
   } catch (err: any) {
-    pointsWithdrawError.value = err.response?.data?.error || '加载积分提现设置失败'
+    turnstileError.value = err.response?.data?.error || '加载 Turnstile 配置失败'
   }
 }
 
-const savePointsWithdrawSettings = async () => {
-  pointsWithdrawError.value = ''
-  pointsWithdrawSuccess.value = ''
+const saveTurnstileSettings = async () => {
+  turnstileError.value = ''
+  turnstileSuccess.value = ''
 
-  const ratePoints = Number.parseInt(pointsWithdrawRatePoints.value.trim(), 10)
-  if (!Number.isFinite(ratePoints) || ratePoints <= 0) {
-    pointsWithdrawError.value = '请输入有效的积分比例（正整数）'
-    return
-  }
+  const siteKey = turnstileSiteKey.value.trim()
+  const secretTrimmed = turnstileSecretKey.value.trim()
 
-  const rateCashCents = parseYuanToCents(pointsWithdrawRateCashYuan.value)
-  if (!Number.isFinite(rateCashCents) || rateCashCents <= 0) {
-    pointsWithdrawError.value = '请输入有效的返现金额（元）'
-    return
-  }
-
-  const minCashCents = parseYuanToCents(pointsWithdrawMinCashYuan.value)
-  if (!Number.isFinite(minCashCents) || minCashCents < 0) {
-    pointsWithdrawError.value = '请输入有效的最低提现金额（元）'
-    return
-  }
-
-  pointsWithdrawLoading.value = true
+  turnstileLoading.value = true
   try {
-    const response = await adminService.updatePointsWithdrawSettings({
-      ratePoints,
-      rateCashCents,
-      minCashCents,
-    })
-    pointsWithdrawRatePoints.value = String(response.rate?.points ?? ratePoints)
-    pointsWithdrawRateCashYuan.value = ((Number(response.rate?.cashCents ?? rateCashCents) || 0) / 100).toFixed(2)
-    pointsWithdrawMinCashYuan.value = ((Number(response.minCashCents ?? minCashCents) || 0) / 100).toFixed(2)
-    pointsWithdrawMinPoints.value = Number(response.minPoints ?? 0)
-    pointsWithdrawStepPoints.value = Number(response.stepPoints ?? 0)
-    pointsWithdrawSuccess.value = '已保存'
-    setTimeout(() => (pointsWithdrawSuccess.value = ''), 3000)
+    const payload: any = { turnstile: { siteKey } }
+    if (secretTrimmed) {
+      payload.turnstile.secretKey = secretTrimmed
+    }
+
+    const response = await adminService.updateTurnstileSettings(payload)
+    turnstileSiteKey.value = response.turnstile?.siteKey || siteKey
+    turnstileSecretKey.value = ''
+    turnstileEnabled.value = Boolean(response.turnstileEnabled)
+    turnstileSecretSet.value = Boolean(response.turnstile?.secretSet)
+    turnstileSecretStored.value = Boolean(response.turnstile?.secretStored)
+    turnstileSiteKeyStored.value = Boolean(response.turnstile?.siteKeyStored)
+
+    turnstileSuccess.value = '已保存'
+    setTimeout(() => (turnstileSuccess.value = ''), 3000)
   } catch (err: any) {
-    pointsWithdrawError.value = err.response?.data?.error || '保存失败'
+    turnstileError.value = err.response?.data?.error || '保存失败'
   } finally {
-    pointsWithdrawLoading.value = false
+    turnstileLoading.value = false
   }
 }
 </script>
 
 <template>
-  <Tabs v-model="activeTab" class="space-y-8">
+  <div class="space-y-8">
     <!-- Header Actions -->
     <Teleport v-if="teleportReady && isSuperAdmin" to="#header-actions">
-      <div class="flex items-center gap-3">
-        <TabsList class="bg-gray-100/70 border border-gray-200 rounded-xl p-1">
-          <TabsTrigger value="settings" class="rounded-lg px-4">
-            系统设置
-          </TabsTrigger>
-          <TabsTrigger value="announcements" class="rounded-lg px-4">
-            公告管理
-          </TabsTrigger>
-        </TabsList>
-
-        <Button
-          variant="outline"
-          :disabled="versionLoading"
-          class="h-10 px-4 border-gray-200 bg-white hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-all"
-          @click="checkForUpdates"
-        >
-          <RefreshCw v-if="versionLoading" class="w-4 h-4 mr-2 animate-spin" />
-          <RefreshCw v-else class="w-4 h-4 mr-2" />
-          检查更新
-        </Button>
-      </div>
+      <Button
+        variant="outline"
+        :disabled="versionLoading"
+        class="h-10 px-4 border-gray-200 bg-white hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-all"
+        @click="checkForUpdates"
+      >
+        <RefreshCw v-if="versionLoading" class="w-4 h-4 mr-2 animate-spin" />
+        <RefreshCw v-else class="w-4 h-4 mr-2" />
+        检查更新
+      </Button>
     </Teleport>
 
     <!-- 版本检查对话框 -->
@@ -1047,8 +380,7 @@ const savePointsWithdrawSettings = async () => {
       </DialogContent>
     </Dialog>
 
-    <TabsContent value="settings" class="mt-0">
-      <div class="grid gap-8 lg:grid-cols-2">
+    <div class="grid gap-8 lg:grid-cols-2">
       <!-- 非超级管理员提示 -->
       <Card
         v-if="!isSuperAdmin"
@@ -1142,377 +474,11 @@ const savePointsWithdrawSettings = async () => {
         </CardContent>
       </Card>
 
-      <!-- 邮箱后缀白名单 -->
-      <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-        <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
-          <CardTitle class="text-xl font-bold text-gray-900">邮箱后缀白名单</CardTitle>
-          <CardDescription class="text-gray-500">用于注册时校验邮箱域名（逗号分隔）。留空表示不限制。</CardDescription>
-        </CardHeader>
-        <CardContent class="p-6 sm:p-8 space-y-5 flex-1">
-          <div class="space-y-2">
-            <Label for="emailDomainWhitelist" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">允许的域名</Label>
-            <Input
-              id="emailDomainWhitelist"
-              v-model="emailDomainWhitelist"
-              type="text"
-              placeholder="example.com,company.com"
-              class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-            />
-            <p class="text-xs text-gray-400">示例：example.com 或 .example.com（允许子域名）</p>
-          </div>
-
-          <div v-if="emailDomainWhitelistError" class="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100 text-sm font-medium">
-            {{ emailDomainWhitelistError }}
-          </div>
-
-          <div v-if="emailDomainWhitelistSuccess" class="rounded-xl bg-green-50 p-4 text-green-600 border border-green-100 text-sm font-medium">
-            {{ emailDomainWhitelistSuccess }}
-          </div>
-
-          <Button
-            type="button"
-            :disabled="emailDomainWhitelistLoading"
-            class="w-full h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5"
-            @click="saveEmailDomainWhitelist"
-          >
-            {{ emailDomainWhitelistLoading ? '保存中...' : '保存白名单' }}
-          </Button>
-        </CardContent>
-      </Card>
-
-      <!-- 功能开关 -->
-      <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:col-span-2">
-        <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
-          <CardTitle class="text-xl font-bold text-gray-900">功能开关</CardTitle>
-          <CardDescription class="text-gray-500">
-            用于快速启用/禁用可选模块；禁用后相关页面/API 会返回 403 提示。
-          </CardDescription>
-        </CardHeader>
-        <CardContent class="p-6 sm:p-8 space-y-5 flex-1">
-          <div class="space-y-3">
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              <div class="space-y-1">
-                <p class="font-medium text-gray-900">支付（ZPAY）</p>
-              </div>
-              <input
-                type="checkbox"
-                v-model="featureFlags.payment"
-                class="w-6 h-6 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-            </div>
-
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              <div class="space-y-1">
-                <p class="font-medium text-gray-900">开放账号（含 Credit 订单）</p>
-              </div>
-              <input
-                type="checkbox"
-                v-model="featureFlags.openAccounts"
-                class="w-6 h-6 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div v-if="featureFlagsError" class="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100 text-sm font-medium">
-            {{ featureFlagsError }}
-          </div>
-
-          <div v-if="featureFlagsSuccess" class="rounded-xl bg-green-50 p-4 text-green-600 border border-green-100 text-sm font-medium">
-            {{ featureFlagsSuccess }}
-          </div>
-
-          <div class="flex flex-col sm:flex-row gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              class="w-full sm:w-auto h-11 px-4 border-gray-200 rounded-xl"
-              @click="loadFeatureFlags"
-            >
-              刷新
-            </Button>
-            <Button
-              type="button"
-              :disabled="featureFlagsLoading"
-              class="w-full h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5"
-              @click="saveFeatureFlags"
-            >
-              {{ featureFlagsLoading ? '保存中...' : '保存功能开关' }}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <!-- 渠道管理 -->
-      <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:col-span-2">
-        <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
-          <CardTitle class="text-xl font-bold text-gray-900">渠道管理</CardTitle>
-          <CardDescription class="text-gray-500">
-            新增/停用渠道，并配置是否允许回退通用码；新增渠道默认使用通用兑换页（/redeem/&lt;key&gt;）。
-          </CardDescription>
-        </CardHeader>
-        <CardContent class="p-6 sm:p-8 space-y-5 flex-1">
-          <div class="flex flex-col sm:flex-row gap-3">
-            <Button type="button" variant="outline" class="w-full sm:w-auto h-11 px-4 border-gray-200 rounded-xl" :disabled="channelsLoading" @click="loadChannels">
-              {{ channelsLoading ? '加载中...' : '刷新' }}
-            </Button>
-            <Button type="button" class="w-full h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5" @click="openCreateChannelDialog">
-              新增渠道
-            </Button>
-          </div>
-
-          <div v-if="channelsError" class="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100 text-sm font-medium">
-            {{ channelsError }}
-          </div>
-          <div v-if="channelsSuccess" class="rounded-xl bg-green-50 p-4 text-green-600 border border-green-100 text-sm font-medium">
-            {{ channelsSuccess }}
-          </div>
-
-          <div class="overflow-x-auto border border-gray-100 rounded-2xl">
-            <table class="min-w-full text-sm">
-              <thead class="bg-gray-50">
-                <tr class="text-left text-gray-500">
-                  <th class="px-4 py-3 font-semibold">Key</th>
-                  <th class="px-4 py-3 font-semibold">名称</th>
-                  <th class="px-4 py-3 font-semibold">模式</th>
-                  <th class="px-4 py-3 font-semibold">回退通用码</th>
-                  <th class="px-4 py-3 font-semibold">状态</th>
-                  <th class="px-4 py-3 font-semibold">兑换链接</th>
-                  <th class="px-4 py-3 font-semibold text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="channel in channels" :key="channel.key" class="border-t border-gray-100">
-                  <td class="px-4 py-3 font-mono text-gray-900">{{ channel.key }}</td>
-                  <td class="px-4 py-3 text-gray-900">{{ channel.name }}</td>
-                  <td class="px-4 py-3 font-mono text-gray-700">{{ channel.redeemMode }}</td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs font-medium" :class="channel.allowCommonFallback ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'">
-                      {{ channel.allowCommonFallback ? '允许' : '不允许' }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs font-medium" :class="channel.isActive ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'">
-                      {{ channel.isActive ? '启用' : '停用' }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 font-mono text-gray-700">/redeem/{{ channel.key }}</td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center justify-end gap-2">
-                      <Button type="button" variant="outline" class="h-9 px-3 border-gray-200 rounded-xl" @click="openEditChannelDialog(channel)">
-                        编辑
-                      </Button>
-                      <Button type="button" variant="outline" class="h-9 px-3 border-gray-200 rounded-xl" @click="toggleChannelActive(channel)">
-                        {{ channel.isActive ? '停用' : '启用' }}
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="!channels.length">
-                  <td colspan="7" class="px-4 py-6 text-center text-gray-400">暂无渠道数据</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <!-- 支付商品管理 -->
-      <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:col-span-2">
-        <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
-          <CardTitle class="text-xl font-bold text-gray-900">支付商品管理</CardTitle>
-          <CardDescription class="text-gray-500">
-            配置商品价格/服务期/订单类型以及渠道优先级（codeChannels），下单时系统会按优先级自动匹配有库存的渠道并锁定。
-          </CardDescription>
-        </CardHeader>
-        <CardContent class="p-6 sm:p-8 space-y-5 flex-1">
-          <div class="flex flex-col sm:flex-row gap-3">
-            <Button type="button" variant="outline" class="w-full sm:w-auto h-11 px-4 border-gray-200 rounded-xl" :disabled="purchaseProductsLoading" @click="refreshPurchaseProducts">
-              {{ purchaseProductsLoading ? '加载中...' : '刷新' }}
-            </Button>
-            <Button type="button" class="w-full h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5" @click="openCreatePurchaseProductDialog">
-              新增商品
-            </Button>
-          </div>
-
-          <div v-if="purchaseProductsError" class="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100 text-sm font-medium">
-            {{ purchaseProductsError }}
-          </div>
-          <div v-if="purchaseProductsSuccess" class="rounded-xl bg-green-50 p-4 text-green-600 border border-green-100 text-sm font-medium">
-            {{ purchaseProductsSuccess }}
-          </div>
-
-          <div class="overflow-x-auto border border-gray-100 rounded-2xl">
-            <table class="min-w-full text-sm">
-              <thead class="bg-gray-50">
-                <tr class="text-left text-gray-500">
-                  <th class="px-4 py-3 font-semibold">Key</th>
-                  <th class="px-4 py-3 font-semibold">名称</th>
-                  <th class="px-4 py-3 font-semibold">价格</th>
-                  <th class="px-4 py-3 font-semibold">服务期</th>
-                  <th class="px-4 py-3 font-semibold">类型</th>
-                  <th class="px-4 py-3 font-semibold">渠道策略</th>
-                  <th class="px-4 py-3 font-semibold">库存</th>
-                  <th class="px-4 py-3 font-semibold">状态</th>
-                  <th class="px-4 py-3 font-semibold text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="product in purchaseProducts" :key="product.productKey" class="border-t border-gray-100">
-                  <td class="px-4 py-3 font-mono text-gray-900">{{ product.productKey }}</td>
-                  <td class="px-4 py-3 text-gray-900">{{ product.productName }}</td>
-                  <td class="px-4 py-3 font-mono text-gray-700">¥ {{ product.amount }}</td>
-                  <td class="px-4 py-3 text-gray-700">{{ product.serviceDays }} 天</td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{{ product.orderType }}</span>
-                  </td>
-                  <td class="px-4 py-3 font-mono text-gray-700">{{ product.codeChannels }}</td>
-                  <td class="px-4 py-3 font-mono text-gray-700">{{ purchaseAvailability[product.productKey] ?? '-' }}</td>
-                  <td class="px-4 py-3">
-                    <span class="px-2 py-1 rounded-full text-xs font-medium" :class="product.isActive ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'">
-                      {{ product.isActive ? '上架' : '下架' }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center justify-end gap-2">
-                      <Button type="button" variant="outline" class="h-9 px-3 border-gray-200 rounded-xl" @click="openEditPurchaseProductDialog(product)">
-                        编辑
-                      </Button>
-                      <Button type="button" variant="outline" class="h-9 px-3 border-gray-200 rounded-xl" @click="togglePurchaseProductActive(product)">
-                        {{ product.isActive ? '下架' : '上架' }}
-                      </Button>
-                      <Button type="button" variant="outline" class="h-9 px-3 border-gray-200 rounded-xl" @click="disablePurchaseProduct(product)">
-                        停用
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="!purchaseProducts.length">
-                  <td colspan="9" class="px-4 py-6 text-center text-gray-400">暂无商品数据</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Dialog v-model:open="channelDialogOpen">
-        <DialogContent class="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle class="text-xl font-bold text-gray-900">{{ channelDialogMode === 'create' ? '新增渠道' : '编辑渠道' }}</DialogTitle>
-            <DialogDescription class="text-gray-500">渠道 key 仅支持小写字母/数字/连字符。</DialogDescription>
-          </DialogHeader>
-
-          <div class="space-y-4 py-4">
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">渠道 Key</Label>
-              <Input v-model="channelFormKey" :disabled="channelDialogMode === 'edit'" placeholder="douyin" class="h-11 bg-gray-50 border-gray-200 rounded-xl font-mono text-sm" />
-            </div>
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">渠道名称</Label>
-              <Input v-model="channelFormName" placeholder="抖音渠道" class="h-11 bg-gray-50 border-gray-200 rounded-xl text-sm" />
-            </div>
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              <div class="space-y-1">
-                <p class="font-medium text-gray-900">允许回退通用码</p>
-                <p class="text-xs text-gray-500">开启后可在该渠道入口使用通用渠道兑换码。</p>
-              </div>
-              <input type="checkbox" v-model="channelFormAllowFallback" class="w-6 h-6 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500" />
-            </div>
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              <div class="space-y-1">
-                <p class="font-medium text-gray-900">启用</p>
-              </div>
-              <input type="checkbox" v-model="channelFormIsActive" class="w-6 h-6 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500" />
-            </div>
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">排序（sortOrder）</Label>
-              <Input v-model="channelFormSortOrder" type="number" class="h-11 bg-gray-50 border-gray-200 rounded-xl font-mono text-sm" />
-            </div>
-
-            <div class="flex flex-col sm:flex-row gap-3 pt-2">
-              <Button type="button" variant="outline" class="w-full sm:w-auto h-11 px-4 border-gray-200 rounded-xl" @click="channelDialogOpen = false">
-                取消
-              </Button>
-              <Button type="button" class="w-full h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5" @click="submitChannelDialog">
-                保存
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog v-model:open="purchaseProductDialogOpen">
-        <DialogContent class="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle class="text-xl font-bold text-gray-900">{{ purchaseProductDialogMode === 'create' ? '新增商品' : '编辑商品' }}</DialogTitle>
-            <DialogDescription class="text-gray-500">codeChannels 按优先级用英文逗号分隔，例如：paypal,common</DialogDescription>
-          </DialogHeader>
-
-          <div class="space-y-4 py-4">
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">商品 Key</Label>
-              <Input v-model="purchaseProductFormKey" :disabled="purchaseProductDialogMode === 'edit'" placeholder="warranty_90" class="h-11 bg-gray-50 border-gray-200 rounded-xl font-mono text-sm" />
-            </div>
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">名称</Label>
-              <Input v-model="purchaseProductFormName" placeholder="质保 90 天" class="h-11 bg-gray-50 border-gray-200 rounded-xl text-sm" />
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="space-y-2">
-                <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">价格（amount）</Label>
-                <Input v-model="purchaseProductFormAmount" placeholder="15.00" class="h-11 bg-gray-50 border-gray-200 rounded-xl font-mono text-sm" />
-              </div>
-              <div class="space-y-2">
-                <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">服务期（天）</Label>
-                <Input v-model="purchaseProductFormServiceDays" type="number" class="h-11 bg-gray-50 border-gray-200 rounded-xl font-mono text-sm" />
-              </div>
-            </div>
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">订单类型（orderType）</Label>
-              <Select v-model="purchaseProductFormOrderType">
-                <SelectTrigger class="h-11 bg-gray-50 border-gray-200 rounded-xl">
-                  <SelectValue placeholder="请选择" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="warranty">warranty</SelectItem>
-                  <SelectItem value="no_warranty">no_warranty</SelectItem>
-                  <SelectItem value="anti_ban">anti_ban</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">渠道策略（codeChannels）</Label>
-              <Input v-model="purchaseProductFormCodeChannels" placeholder="paypal,common" class="h-11 bg-gray-50 border-gray-200 rounded-xl font-mono text-sm" />
-              <p class="text-xs text-gray-400">可用渠道：{{ channels.map(c => c.key).join(', ') || '（暂无）' }}</p>
-            </div>
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-              <div class="space-y-1">
-                <p class="font-medium text-gray-900">上架</p>
-              </div>
-              <input type="checkbox" v-model="purchaseProductFormIsActive" class="w-6 h-6 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500" />
-            </div>
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">排序（sortOrder）</Label>
-              <Input v-model="purchaseProductFormSortOrder" type="number" class="h-11 bg-gray-50 border-gray-200 rounded-xl font-mono text-sm" />
-            </div>
-
-            <div class="flex flex-col sm:flex-row gap-3 pt-2">
-              <Button type="button" variant="outline" class="w-full sm:w-auto h-11 px-4 border-gray-200 rounded-xl" @click="purchaseProductDialogOpen = false">
-                取消
-              </Button>
-              <Button type="button" class="w-full h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5" @click="submitPurchaseProductDialog">
-                保存
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <!-- SMTP / 第三方配置 -->
+      <!-- SMTP 邮件告警配置 -->
       <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:col-span-2">
         <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
           <CardTitle class="text-xl font-bold text-gray-900">SMTP 邮件告警配置</CardTitle>
-          <CardDescription class="text-gray-500">用于发送验证码/订单邮件/系统告警邮件（保存后实时生效）。</CardDescription>
+          <CardDescription class="text-gray-500">用于发送系统告警邮件（保存后实时生效）。</CardDescription>
         </CardHeader>
         <CardContent class="p-6 sm:p-8 space-y-6 flex-1">
           <div class="grid gap-4 lg:grid-cols-3">
@@ -1640,254 +606,11 @@ const savePointsWithdrawSettings = async () => {
         </CardContent>
       </Card>
 
-      <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-        <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
-          <CardTitle class="text-xl font-bold text-gray-900">Linux DO OAuth 配置</CardTitle>
-          <CardDescription class="text-gray-500">用于 Linux DO 登录/授权（保存后实时生效）。</CardDescription>
-        </CardHeader>
-        <CardContent class="p-6 sm:p-8 space-y-6 flex-1">
-          <div class="grid gap-4">
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Client ID</Label>
-              <Input
-                v-model="linuxdoClientId"
-                type="text"
-                placeholder="Linux DO Client ID"
-                class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                :disabled="linuxdoOauthLoading"
-              />
-            </div>
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Client Secret</Label>
-              <div class="relative">
-                <Input
-                  v-model="linuxdoClientSecret"
-                  :type="showLinuxdoClientSecret ? 'text' : 'password'"
-                  placeholder="留空表示不修改"
-                  class="h-11 pr-10 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                  :disabled="linuxdoOauthLoading"
-                />
-                <button
-                  type="button"
-                  @click="toggleShowLinuxdoClientSecret"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <EyeOff v-if="showLinuxdoClientSecret" class="h-4 w-4" />
-                  <Eye v-else class="h-4 w-4" />
-                </button>
-              </div>
-              <p class="text-xs text-gray-400">
-                <template v-if="linuxdoClientSecretStored">Client Secret 已入库；留空表示不修改。</template>
-                <template v-else-if="linuxdoClientSecretSet">Client Secret 未入库；保存时可从 .env 自动迁移或在此重新填写。</template>
-                <template v-else>未设置 Client Secret。</template>
-              </p>
-            </div>
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Redirect URI</Label>
-              <Input
-                v-model="linuxdoRedirectUri"
-                type="text"
-                placeholder="https://example.com/redeem/linux-do"
-                class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all text-sm font-mono"
-                :disabled="linuxdoOauthLoading"
-              />
-            </div>
-          </div>
-
-          <div v-if="linuxdoOauthError" class="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100 text-sm font-medium">
-            {{ linuxdoOauthError }}
-          </div>
-
-          <div v-if="linuxdoOauthSuccess" class="rounded-xl bg-green-50 p-4 text-green-600 border border-green-100 text-sm font-medium">
-            {{ linuxdoOauthSuccess }}
-          </div>
-
-          <div class="flex flex-col sm:flex-row gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              class="w-full sm:w-auto h-11 rounded-xl"
-              :disabled="linuxdoOauthLoading"
-              @click="loadLinuxDoOAuthSettings"
-            >
-              刷新
-            </Button>
-            <Button
-              type="button"
-              class="w-full sm:flex-1 h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5"
-              :disabled="linuxdoOauthLoading"
-              @click="saveLinuxDoOAuthSettings"
-            >
-              {{ linuxdoOauthLoading ? '保存中...' : '保存 Linux DO OAuth 配置' }}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-        <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
-          <CardTitle class="text-xl font-bold text-gray-900">Linux DO Credit 配置</CardTitle>
-          <CardDescription class="text-gray-500">用于 Credit 积分支付/回调验签（保存后实时生效）。</CardDescription>
-        </CardHeader>
-        <CardContent class="p-6 sm:p-8 space-y-6 flex-1">
-          <div class="grid gap-4 lg:grid-cols-2">
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">PID</Label>
-              <Input
-                v-model="linuxdoCreditPid"
-                type="text"
-                placeholder="Credit PID"
-                class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                :disabled="linuxdoCreditLoading"
-              />
-            </div>
-            <div class="space-y-2">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">KEY</Label>
-              <div class="relative">
-                <Input
-                  v-model="linuxdoCreditKey"
-                  :type="showLinuxdoCreditKey ? 'text' : 'password'"
-                  placeholder="留空表示不修改"
-                  class="h-11 pr-10 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                  :disabled="linuxdoCreditLoading"
-                />
-                <button
-                  type="button"
-                  @click="toggleShowLinuxdoCreditKey"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <EyeOff v-if="showLinuxdoCreditKey" class="h-4 w-4" />
-                  <Eye v-else class="h-4 w-4" />
-                </button>
-              </div>
-              <p class="text-xs text-gray-400">
-                <template v-if="linuxdoCreditKeyStored">KEY 已入库；留空表示不修改。</template>
-                <template v-else-if="linuxdoCreditKeySet">KEY 未入库；保存时可从 .env 自动迁移或在此重新填写。</template>
-                <template v-else>未设置 KEY。</template>
-              </p>
-            </div>
-          </div>
-
-          <div v-if="linuxdoCreditError" class="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100 text-sm font-medium">
-            {{ linuxdoCreditError }}
-          </div>
-
-          <div v-if="linuxdoCreditSuccess" class="rounded-xl bg-green-50 p-4 text-green-600 border border-green-100 text-sm font-medium">
-            {{ linuxdoCreditSuccess }}
-          </div>
-
-          <div class="flex flex-col sm:flex-row gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              class="w-full sm:w-auto h-11 rounded-xl"
-              :disabled="linuxdoCreditLoading"
-              @click="loadLinuxDoCreditSettings"
-            >
-              刷新
-            </Button>
-            <Button
-              type="button"
-              class="w-full sm:flex-1 h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5"
-              :disabled="linuxdoCreditLoading"
-              @click="saveLinuxDoCreditSettings"
-            >
-              {{ linuxdoCreditLoading ? '保存中...' : '保存 Linux DO Credit 配置' }}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:col-span-2">
-        <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
-          <CardTitle class="text-xl font-bold text-gray-900">ZPAY 支付配置</CardTitle>
-          <CardDescription class="text-gray-500">用于购买下单与回调验签（保存后实时生效）。</CardDescription>
-        </CardHeader>
-        <CardContent class="p-6 sm:p-8 space-y-6 flex-1">
-          <div class="grid gap-4 lg:grid-cols-3">
-            <div class="space-y-2 lg:col-span-1">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Base URL</Label>
-              <Input
-                v-model="zpayBaseUrl"
-                type="text"
-                placeholder="https://zpayz.cn"
-                class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                :disabled="zpayLoading"
-              />
-              <p class="text-xs text-gray-400">示例：https://zpayz.cn（无需以 / 结尾）</p>
-            </div>
-            <div class="space-y-2 lg:col-span-1">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">PID</Label>
-              <Input
-                v-model="zpayPid"
-                type="text"
-                placeholder="ZPAY PID"
-                class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                :disabled="zpayLoading"
-              />
-              <p class="text-xs text-gray-400">留空表示不启用支付。</p>
-            </div>
-            <div class="space-y-2 lg:col-span-1">
-              <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">KEY</Label>
-              <div class="relative">
-                <Input
-                  v-model="zpayKey"
-                  :type="showZpayKey ? 'text' : 'password'"
-                  placeholder="留空表示不修改"
-                  class="h-11 pr-10 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all font-mono text-sm"
-                  :disabled="zpayLoading"
-                />
-                <button
-                  type="button"
-                  @click="toggleShowZpayKey"
-                  class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <EyeOff v-if="showZpayKey" class="h-4 w-4" />
-                  <Eye v-else class="h-4 w-4" />
-                </button>
-              </div>
-              <p class="text-xs text-gray-400">
-                <template v-if="zpayKeyStored">KEY 已入库；留空表示不修改。</template>
-                <template v-else-if="zpayKeySet">KEY 未入库；保存时可从 .env 自动迁移或在此重新填写。</template>
-                <template v-else>未设置 KEY。</template>
-              </p>
-            </div>
-          </div>
-
-          <div v-if="zpayError" class="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100 text-sm font-medium">
-            {{ zpayError }}
-          </div>
-
-          <div v-if="zpaySuccess" class="rounded-xl bg-green-50 p-4 text-green-600 border border-green-100 text-sm font-medium">
-            {{ zpaySuccess }}
-          </div>
-
-          <div class="flex flex-col sm:flex-row gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              class="w-full sm:w-auto h-11 rounded-xl"
-              :disabled="zpayLoading"
-              @click="loadZpaySettings"
-            >
-              刷新
-            </Button>
-            <Button
-              type="button"
-              class="w-full sm:flex-1 h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5"
-              :disabled="zpayLoading"
-              @click="saveZpaySettings"
-            >
-              {{ zpayLoading ? '保存中...' : '保存 ZPAY 配置' }}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
+      <!-- Cloudflare Turnstile 配置 -->
       <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:col-span-2">
         <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
           <CardTitle class="text-xl font-bold text-gray-900">Cloudflare Turnstile 配置</CardTitle>
-          <CardDescription class="text-gray-500">用于候车室加入队列的人机验证（保存后实时生效）。</CardDescription>
+          <CardDescription class="text-gray-500">用于人机验证（保存后实时生效）。</CardDescription>
         </CardHeader>
         <CardContent class="p-6 sm:p-8 space-y-6 flex-1">
           <div class="text-xs text-gray-500">
@@ -1964,87 +687,6 @@ const savePointsWithdrawSettings = async () => {
           </div>
         </CardContent>
       </Card>
-
-      
-
-      <!-- 积分提现设置 -->
-      <Card v-if="isSuperAdmin" class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden flex flex-col lg:col-span-2">
-	          <CardHeader class="border-b border-gray-50 bg-gray-50/30 px-6 py-5 sm:px-8 sm:py-6">
-	            <CardTitle class="text-xl font-bold text-gray-900">积分提现设置</CardTitle>
-	            <CardDescription class="text-gray-500">配置返现比例与提现门槛（保存后实时生效）。</CardDescription>
-	          </CardHeader>
-	          <CardContent class="p-6 sm:p-8 space-y-6 flex-1">
-	            <div class="grid gap-4 lg:grid-cols-3">
-	              <div class="space-y-2">
-	                <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">返现比例：积分</Label>
-                <Input
-                  v-model="pointsWithdrawRatePoints"
-                  type="text"
-                  placeholder="1"
-                  class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
-                  :disabled="pointsWithdrawLoading"
-                />
-              </div>
-              <div class="space-y-2">
-                <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">返现比例：金额（元）</Label>
-                <Input
-                  v-model="pointsWithdrawRateCashYuan"
-                  type="text"
-                  placeholder="1.00"
-                  class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
-                  :disabled="pointsWithdrawLoading"
-                />
-              </div>
-              <div class="space-y-2">
-                <Label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">最低提现金额（元）</Label>
-                <Input
-                  v-model="pointsWithdrawMinCashYuan"
-                  type="text"
-                  placeholder="10.00"
-                  class="h-11 bg-gray-50 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-all"
-                  :disabled="pointsWithdrawLoading"
-                />
-              </div>
-            </div>
-
-            <div class="text-xs text-gray-500">
-              当前规则：{{ pointsWithdrawRatePoints }} 积分 = {{ pointsWithdrawRateCashYuan }} 元；最低提现约 {{ pointsWithdrawMinPoints ?? '-' }} 积分；步进 {{ pointsWithdrawStepPoints ?? '-' }} 积分
-            </div>
-
-            <div v-if="pointsWithdrawError" class="rounded-xl bg-red-50 p-4 text-red-600 border border-red-100 text-sm font-medium">
-              {{ pointsWithdrawError }}
-            </div>
-
-            <div v-if="pointsWithdrawSuccess" class="rounded-xl bg-green-50 p-4 text-green-600 border border-green-100 text-sm font-medium">
-              {{ pointsWithdrawSuccess }}
-            </div>
-
-	            <div class="flex flex-col sm:flex-row gap-3">
-	              <Button
-	                type="button"
-	                variant="outline"
-	                class="w-full sm:w-auto h-11 rounded-xl"
-	                :disabled="pointsWithdrawLoading"
-	                @click="loadPointsWithdrawSettings"
-	              >
-	                刷新
-	              </Button>
-	              <Button
-	                type="button"
-	                class="w-full sm:flex-1 h-11 rounded-xl bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/5"
-	                :disabled="pointsWithdrawLoading"
-	                @click="savePointsWithdrawSettings"
-	              >
-	                {{ pointsWithdrawLoading ? '保存中...' : '保存设置' }}
-              </Button>
-            </div>
-          </CardContent>
-      </Card>
-      </div>
-    </TabsContent>
-
-    <TabsContent v-if="isSuperAdmin" value="announcements" class="mt-0">
-      <AnnouncementAdminPanel />
-    </TabsContent>
-  </Tabs>
+    </div>
+  </div>
 </template>

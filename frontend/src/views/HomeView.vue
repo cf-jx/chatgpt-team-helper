@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import TheWelcome from '../components/TheWelcome.vue'
+import { onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+onMounted(() => {
+  router.replace('/admin/accounts')
+})
 </script>
 
 <template>
-  <main>
-    <TheWelcome />
-  </main>
+  <div></div>
 </template>

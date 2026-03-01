@@ -67,7 +67,7 @@ INIT_ADMIN_PASSWORD=你的管理员密码
 根据需要在环境变量中添加：
 
 - **邮件通知**：`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` 等
-- **Telegram 机器人**：`TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_IDS` 等
-- **支付功能**：`ZPAY_BASE_URL`, `ZPAY_PID`, `ZPAY_KEY` 等
+- **人机验证**：`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` 等
+- **代理配置**：`CHATGPT_PROXY_URL` 等
 
 详见项目 [README](https://github.com/Kylsky/chatgpt-team-helper)。
